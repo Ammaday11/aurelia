@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * RufiyaaSign — a tiny custom webfont containing only U+20C2 (the
+ * Maldivian Rufiyaa sign), drawn as a stylised Thaana Raa (ރ) with an
+ * added horizontal stroke. `unicode-range` scopes it to that single code
+ * point, so it only ever substitutes the Rufiyaa glyph and never affects
+ * surrounding digits/text — browsers that don't support the character
+ * fall back to the next font in the stack (which also lacks a glyph for
+ * U+20C2, rendering as .notdef) while still keeping the real UTF-8
+ * character in the markup for copy/paste and screen readers.
+ */
+@font-face {
+    font-family: 'RufiyaaSign';
+    src: url('/fonts/RufiyaaSign-Regular.woff2') format('woff2');
+    unicode-range: U+20C2;
+    font-weight: 400 700;
+    font-display: swap;
+}
+
+[x-cloak] {
+    display: none !important;
+}
+
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-beige text-espresso font-sans antialiased;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        @apply font-serif text-espresso;
+    }
+}
+
+@layer components {
+    /* Every price on the site (storefront, cart, checkout, admin, emails
+     * share this class so the RufiyaaSign webfont is applied consistently
+     * in the one place it's needed. */
+    .price-rufiyaa {
+        font-family: 'RufiyaaSign', 'Lato', sans-serif;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Thin floral line-art divider used between storefront sections. */
+    .floral-divider {
+        @apply bg-floral-divider bg-center bg-no-repeat mx-auto;
+        width: 200px;
+        height: 20px;
+        background-size: contain;
+    }
+
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-sans font-semibold transition
+               duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-sand focus-visible:ring-offset-2
+               focus-visible:ring-offset-beige disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .btn-primary {
+        @apply btn bg-mocha text-beige-surface shadow-soft hover:bg-espresso hover:shadow-card active:scale-[0.98];
+    }
+
+    .btn-secondary {
+        @apply btn bg-blush text-espresso hover:bg-sand hover:text-beige-surface active:scale-[0.98];
+    }
+
+    .btn-outline {
+        @apply btn border border-mocha text-mocha bg-transparent hover:bg-mocha hover:text-beige-surface active:scale-[0.98];
+    }
+
+    .card {
+        @apply rounded-xl2 bg-beige-surface shadow-card transition duration-200 ease-out hover:-translate-y-1 hover:shadow-soft;
+    }
+
+    .input {
+        @apply block w-full rounded-lg border-blush bg-beige-surface text-espresso shadow-sm
+               focus:border-sand focus:ring focus:ring-sand/30 disabled:bg-blush/40;
+    }
+
+    .label {
+        @apply block text-sm font-semibold text-mocha mb-1;
+    }
+
+    .section-title {
+        @apply font-serif text-3xl sm:text-4xl text-espresso text-center;
+    }
+
+    .section-tagline {
+        @apply font-script text-3xl sm:text-4xl text-mocha text-center leading-none;
+    }
+
+    .badge {
+        @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide;
+    }
+
+    /* Trix rich-text editor (admin product description) re-themed to
+     * match the beige palette instead of its default white/blue look. */
+    trix-toolbar .trix-button-row {
+        @apply flex-wrap gap-1 rounded-t-lg border border-blush bg-blush/40 p-2;
+    }
+
+    trix-toolbar .trix-button {
+        @apply rounded border-0 bg-transparent text-espresso;
+    }
+
+    trix-toolbar .trix-button.trix-active {
+        @apply bg-sand text-beige-surface;
+    }
+
+    trix-editor {
+        @apply min-h-[180px] rounded-b-lg border border-t-0 border-blush bg-beige-surface p-4 text-espresso focus:outline-none focus:ring-2 focus:ring-sand/30;
+    }
+}

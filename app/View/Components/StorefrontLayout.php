@@ -1,0 +1,20 @@
+<?php
+
+namespace App\View\Components;
+
+use Illuminate\View\Component;
+use Illuminate\View\View;
+
+class StorefrontLayout extends Component
+{
+    public function __construct(
+        public ?string $title = null,
+        public ?string $description = null,
+        public ?string $image = null,
+    ) {}
+
+    public function render(): View
+    {
+        return view('layouts.storefront');
+    }
+}

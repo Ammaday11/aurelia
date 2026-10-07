@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="80 200 410 600" width="41" height="60" role="img" aria-label="MVR">
+  <title>Rufiyaa sign</title>
+  <path fill="#3E3228" d="
+    M172,800
+    L172,235
+    L278,235
+    L278,800
+    Z
+  "/>
+  <path fill="#3E3228" d="
+    M278,232
+    C 365,226 445,256 450,322
+    C 453,372 418,408 362,412
+    C 332,414 304,405 286,390
+    L286,338
+    C 300,352 326,360 352,357
+    C 392,352 412,330 410,315
+    C 406,278 350,262 278,268
+    Z
+  "/>
+  <rect x="105" y="485" width="360" height="76" fill="#3E3228"/>
+  <circle cx="382" cy="685" r="52" fill="#3E3228"/>
+</svg>

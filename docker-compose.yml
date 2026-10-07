@@ -1,0 +1,40 @@
+version: "3.8"
+
+# Minimal local MySQL 8 for Aurelia Boutonnière. Only the database runs in
+# Docker — PHP, Composer, and Node run natively on the host (see README).
+#
+# Usage:
+#   docker compose up -d
+#   docker compose down        # stop (keeps data)
+#   docker compose down -v     # stop and wipe the database volume
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: aurelia-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: aurelia
+      MYSQL_USER: aurelia
+      MYSQL_PASSWORD: aurelia
+      MYSQL_ROOT_PASSWORD: root
+      # utf8mb4_unicode_ci end-to-end, required for the "è" in
+      # "Boutonnière" (and the Rufiyaa sign) to store and sort correctly.
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - aurelia-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  aurelia-mysql-data:
+    driver: local

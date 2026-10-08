@@ -3,19 +3,30 @@
 @tailwind utilities;
 
 /*
- * RufiyaaSign — a tiny custom webfont containing only U+20C2 (the
- * Maldivian Rufiyaa sign), drawn as a stylised Thaana Raa (ރ) with an
- * added horizontal stroke. `unicode-range` scopes it to that single code
- * point, so it only ever substitutes the Rufiyaa glyph and never affects
- * surrounding digits/text — browsers that don't support the character
- * fall back to the next font in the stack (which also lacks a glyph for
- * U+20C2, rendering as .notdef) while still keeping the real UTF-8
- * character in the markup for copy/paste and screen readers.
+ * RufiyaaSign — a tiny custom webfont containing one glyph (the Maldivian
+ * Rufiyaa sign), drawn as a stylised Thaana Raa (ރ) with an added
+ * horizontal stroke, mapped to the Private Use Area codepoint U+E900.
+ *
+ * Why PUA and not a "real" currency codepoint: there isn't one. Unicode's
+ * Currency Symbols block (U+20A0-U+20CF) currently ends at U+20C0 (SOM
+ * SIGN) — nothing has been assigned for the rufiyaa. Browsers refuse to
+ * let any font substitute a glyph for a genuinely unassigned codepoint
+ * (shown as their own "invalid codepoint" box, no matter what a custom
+ * font declares), so PUA — the standard mechanism every icon font uses
+ * for symbols with no assigned codepoint — is what actually renders. See
+ * resources/fonts/build_rufiyaa_font.py for the full writeup.
+ *
+ * `unicode-range` scopes the font to that single code point, so it only
+ * ever substitutes the Rufiyaa glyph and never affects surrounding
+ * digits/text — browsers that don't support the character fall back to
+ * the next font in the stack (which also lacks a glyph there, rendering
+ * as .notdef) while still keeping the real UTF-8 character in the markup
+ * for copy/paste and screen readers.
  */
 @font-face {
     font-family: 'RufiyaaSign';
     src: url('/fonts/RufiyaaSign-Regular.woff2') format('woff2');
-    unicode-range: U+20C2;
+    unicode-range: U+E900;
     font-weight: 400 700;
     font-display: swap;
 }

@@ -1,13 +1,37 @@
 #!/usr/bin/env python3
 """
-Builds a minimal single-glyph webfont "RufiyaaSign" containing only
-U+20C2 (MALDIVIAN RUFIYAA SIGN), drawn as a stylised rendition of the
-Thaana letter Raa (ރ) with an added horizontal stroke, per the official
-MMA rufiyaa sign concept. Outputs TTF + WOFF2.
+Builds a minimal single-glyph webfont "RufiyaaSign", drawn as a stylised
+rendition of the Thaana letter Raa (ރ) with an added horizontal stroke,
+per the official MMA rufiyaa sign concept. Outputs TTF + WOFF2.
+
+IMPORTANT — codepoint choice: this glyph lives at a Private Use Area (PUA)
+codepoint (U+E900 by default), NOT at U+20C2. An earlier version of this
+project used U+20C2 on the assumption it was "MALDIVIAN RUFIYAA SIGN", but
+that codepoint is in fact unassigned/reserved in the real Unicode standard
+— the Currency Symbols block (U+20A0-U+20CF) currently ends its real
+assignments at U+20C0 (SOM SIGN, Unicode 9.0). There is no dedicated
+Unicode codepoint for the Maldivian rufiyaa sign yet; it has never been
+submitted to/accepted by the Unicode Consortium.
+
+Browsers treat a genuinely unassigned codepoint specially: they refuse to
+let ANY font substitute a glyph for it and show their own "invalid
+codepoint" box instead, regardless of what a custom font's cmap claims —
+this happens at the Unicode-validity layer, before font glyph lookup, so
+no amount of font-rebuilding fixes it. (Verified empirically: the exact
+same font-building code renders perfectly at a PUA codepoint and fails
+identically at U+20C2, even for a trivial placeholder glyph.)
+
+The Private Use Area (U+E000-U+F8FF) is the Unicode-sanctioned mechanism
+for exactly this situation — "a symbol with local meaning and no assigned
+codepoint" — and is how every icon font (Font Awesome, etc.) works. If
+Unicode ever assigns a real codepoint for the rufiyaa sign, update
+RUFIYAA_CODEPOINT below (and config/shop.php's 'sign' value, and the
+unicode-range in resources/css/app.css) to match.
 
 This is dev tooling, not part of the running app — re-run it only if you
 want to redraw the glyph (e.g. to swap in the official MMA artwork once
-available). It writes next to this script by default.
+available, or to change the codepoint). It writes next to this script by
+default.
 
 Usage:
     pip install fonttools brotli
@@ -23,6 +47,9 @@ from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.pens.cu2quPen import Cu2QuPen
 from fontTools.pens.boundsPen import BoundsPen
+
+RUFIYAA_CODEPOINT = 0xE900  # Private Use Area — see module docstring.
+RUFIYAA_GLYPH_NAME = f"uni{RUFIYAA_CODEPOINT:04X}"
 
 UPM = 1000
 BASELINE_SVG_Y = 800  # svg y that maps to font baseline (font_y = 0)
@@ -123,14 +150,14 @@ ADVANCE = 620
 NOTDEF_ADVANCE = 600
 
 fb = FontBuilder(UPM, isTTF=True)
-glyph_order = [".notdef", "uni20C2"]
+glyph_order = [".notdef", RUFIYAA_GLYPH_NAME]
 fb.setupGlyphOrder(glyph_order)
-fb.setupCharacterMap({0x20C2: "uni20C2"})
-fb.setupGlyf({".notdef": notdef_glyph, "uni20C2": glyph})
+fb.setupCharacterMap({RUFIYAA_CODEPOINT: RUFIYAA_GLYPH_NAME})
+fb.setupGlyf({".notdef": notdef_glyph, RUFIYAA_GLYPH_NAME: glyph})
 
 metrics = {
     ".notdef": (NOTDEF_ADVANCE, nd_xmin),
-    "uni20C2": (ADVANCE, xmin),
+    RUFIYAA_GLYPH_NAME: (ADVANCE, xmin),
 }
 fb.setupHorizontalMetrics(metrics)
 fb.setupHorizontalHeader(ascent=800, descent=-200, lineGap=0)

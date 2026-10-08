@@ -10,13 +10,15 @@
     checkout, admin panel, emails, and PDF invoices. Always formats
     through the money() helper so every price on the site is consistent.
 
-    - for="web" (default): the literal U+20C2 character stays in the text
-      node (not an HTML entity) so copy/paste and screen readers get the
-      real symbol, styled via the "price-rufiyaa" class which loads the
-      bundled RufiyaaSign webfont scoped to that one code point (see
-      resources/css/app.css). aria-label spells out "MVR" for assistive
-      tech, since most screen reader voices don't yet know how to
-      pronounce U+20C2.
+    - for="web" (default): the literal Rufiyaa sign character stays in the
+      text node (not an HTML entity) so copy/paste and screen readers get
+      the real symbol, styled via the "price-rufiyaa" class which loads
+      the bundled RufiyaaSign webfont scoped to that one code point (see
+      resources/css/app.css). The character lives at a Private Use Area
+      codepoint rather than a "real" currency codepoint — there isn't one
+      yet; see resources/fonts/build_rufiyaa_font.py. aria-label spells
+      out "MVR" for assistive tech, since there's no standard pronunciation
+      for a PUA codepoint.
     - for="image": custom webfonts are unreliable in mail clients and
       print-to-PDF rendering, so emails and the printable invoice both use
       this mode to swap the character for an inline <img> of the sign

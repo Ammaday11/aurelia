@@ -4,7 +4,7 @@ A full-stack flower shop website with online ordering and an admin panel, built 
 
 - **Storefront:** home, shop (filter/sort/search/pagination), product detail, cart, guest checkout (Cash on Delivery or Bank Transfer with receipt upload), order confirmation + email, order tracking, about, contact.
 - **Admin panel** (`/admin`): dashboard, products (rich text, multi-image gallery with drag-reorder, featured/active toggles), categories, orders (status workflow, printable invoice), contact messages, settings (shop info, logo/favicon, delivery fee & time slots, bank details).
-- **Currency:** Maldivian Rufiyaa (MVR), displayed with the official Rufiyaa sign (U+20C2) via a bundled custom webfont, with an image fallback for emails and the printable invoice.
+- **Currency:** Maldivian Rufiyaa (MVR), displayed with a Rufiyaa sign glyph via a bundled custom webfont (at a Private Use Area codepoint — see below for why), with an image fallback for emails and the printable invoice.
 
 ---
 
@@ -164,15 +164,17 @@ To swap it in: log in to the admin panel → **Settings** → **Shop Identity** 
 
 ---
 
-## The Rufiyaa Sign (⃂ U+20C2)
+## The Rufiyaa Sign
 
 Every price on the site is formatted by the single `money()` helper (`app/Support/helpers.php`) and displayed via the `<x-price :amount="..." />` component (`resources/views/components/price.blade.php`), so the currency formatting lives in exactly one place.
 
-Most fonts have no glyph for U+20C2, so:
-- **On the web**, a tiny custom webfont — `RufiyaaSign` (`public/fonts/RufiyaaSign-Regular.woff2`), built from scratch with `fontTools` and scoped via `unicode-range: U+20C2` — supplies the glyph (a stylised Thaana Raa ރ with an added horizontal stroke, per the MMA's rufiyaa sign concept). The real UTF-8 character stays in the markup, so copy/paste and screen readers (`aria-label="MVR ..."`) still work.
-- **In emails and the printable invoice**, where custom webfonts are unreliable, `<x-price for="image" />` swaps in an inline `<img>` of the sign instead (`public/images/mail/rufiyaa-sign.png`, `alt="MVR"`).
+**On the codepoint:** the sign is rendered at **U+E900**, a Private Use Area codepoint — deliberately *not* U+20C2. An earlier pass of this project used U+20C2 on the assumption it was the assigned "Maldivian Rufiyaa Sign," but that's incorrect: Unicode's Currency Symbols block (U+20A0–U+20CF) currently ends its real assignments at U+20C0 (SOM SIGN, Unicode 9.0); there is no dedicated Unicode codepoint for the rufiyaa sign, and none has been submitted to/accepted by the Unicode Consortium. Browsers treat a genuinely unassigned codepoint specially — they refuse to let *any* font substitute a glyph for it and show their own "invalid codepoint" box instead, no matter what a custom font's `cmap` claims. This happens at the Unicode-validity layer, before font glyph lookup, so no amount of font-rebuilding fixes it at U+20C2 (verified empirically — the exact same font-building code renders perfectly at a PUA codepoint and fails identically at U+20C2, even for a placeholder rectangle glyph). The Private Use Area (U+E000–U+F8FF) is the Unicode-sanctioned mechanism for exactly this situation — a symbol with local meaning and no assigned codepoint — and is how every icon font (Font Awesome, etc.) works. If Unicode ever assigns a real codepoint for the rufiyaa sign, update `RUFIYAA_CODEPOINT` in `resources/fonts/build_rufiyaa_font.py`, `config/shop.php`'s `currency.sign`, and the `unicode-range` in `resources/css/app.css`.
 
-The webfont is generated (not hand-crafted in a font editor) by `resources/fonts/build_rufiyaa_font.py`, a small [fontTools](https://github.com/fonttools/fonttools)-based script that draws the glyph as SVG-style path data and compiles it straight to TTF/WOFF2 — see the script's docstring for how to tweak the glyph or swap in the official MMA artwork once available, then copy the output into `public/fonts/`. The `resources/fonts/RufiyaaSign-Regular.ttf` file in this repo is that script's own output, kept as the source of truth.
+No system font has a glyph at a custom PUA codepoint (by definition), so:
+- **On the web**, a tiny custom webfont — `RufiyaaSign` (`public/fonts/RufiyaaSign-Regular.woff2`), built from scratch with `fontTools` and scoped via `unicode-range: U+E900` — supplies the glyph (a stylised Thaana Raa ރ with an added horizontal stroke, per the MMA's rufiyaa sign concept). The real UTF-8 character stays in the markup, so copy/paste and screen readers (`aria-label="MVR ..."`) still work (copying it into an app without this font installed will show as a missing-glyph box there, same tradeoff as any icon font).
+- **In emails and the printable invoice**, where custom webfonts are unreliable, `<x-price for="image" />` swaps in an inline `<img>` of the sign instead (`public/images/mail/rufiyaa-sign.png`, `alt="MVR"`) — this path doesn't depend on the codepoint at all.
+
+The webfont is generated (not hand-crafted in a font editor) by `resources/fonts/build_rufiyaa_font.py`, a small [fontTools](https://github.com/fonttools/fonttools)-based script that draws the glyph as SVG-style path data and compiles it straight to TTF/WOFF2 — see the script's docstring for the full codepoint explanation and how to tweak the glyph or swap in the official MMA artwork once available, then copy the output into `public/fonts/`. The `resources/fonts/RufiyaaSign-Regular.ttf` file in this repo is that script's own output, kept as the source of truth.
 
 ---
 

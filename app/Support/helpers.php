@@ -12,9 +12,9 @@ use App\Models\Setting;
 
 if (! function_exists('money')) {
     /**
-     * Format an amount as a Rufiyaa string, e.g. "₂ 1,250.00" (the literal
-     * U+20C2 MALDIVIAN RUFIYAA SIGN character, a thin space, then the
-     * amount with thousands separators and 2 decimals).
+     * Format an amount as a Rufiyaa string, e.g. "[sign] 1,250.00" (the
+     * literal Rufiyaa sign character, a thin space, then the amount with
+     * thousands separators and 2 decimals).
      *
      * This is the ONE place amounts are formatted for display. Every price
      * shown on the storefront, cart, checkout, admin panel, emails, and
@@ -22,10 +22,13 @@ if (! function_exists('money')) {
      * Blade component which calls it).
      *
      * The Rufiyaa sign is emitted as a real UTF-8 character (not an HTML
-     * entity) so copy/paste and screen readers get the genuine symbol. Most
-     * fonts have no glyph for U+20C2, so pair this output with the
-     * "price-rufiyaa" CSS class, which loads the bundled RufiyaaSign
-     * webfont scoped to that single code point via unicode-range.
+     * entity) so copy/paste and screen readers get the genuine symbol. It
+     * lives at a Private Use Area codepoint (see config/shop.php and
+     * resources/fonts/build_rufiyaa_font.py for why — short version: there
+     * is no real assigned Unicode codepoint for this sign yet). No system
+     * font has a glyph there, so pair this output with the "price-rufiyaa"
+     * CSS class, which loads the bundled RufiyaaSign webfont scoped to
+     * that single code point via unicode-range.
      */
     function money(float|int|string|null $amount, bool $withSign = true): string
     {

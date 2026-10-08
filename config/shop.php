@@ -25,15 +25,26 @@ return [
     |
     | The shop trades exclusively in Maldivian Rufiyaa. The ISO code is used
     | internally (database columns, exports, payment references) while the
-    | Rufiyaa sign (U+20C2) is what customers see. See app/Support/helpers.php
-    | for the money() formatter and resources/views/components/price.blade.php
-    | for the <x-price> component that wraps it for display.
+    | Rufiyaa sign is what customers see. See app/Support/helpers.php for the
+    | money() formatter and resources/views/components/price.blade.php for
+    | the <x-price> component that wraps it for display.
+    |
+    | NOTE on the codepoint: U+E900 is a Private Use Area assignment, not a
+    | real Unicode codepoint — there currently isn't one. The Currency
+    | Symbols block (U+20A0-U+20CF) stops at U+20C0 (SOM SIGN); nothing has
+    | been assigned for the Maldivian rufiyaa. Browsers refuse to substitute
+    | ANY font glyph for a genuinely unassigned codepoint (verified: our
+    | bundled RufiyaaSign webfont renders perfectly at this PUA codepoint
+    | and fails identically at U+20C2, even for a placeholder glyph) — so
+    | PUA is the only codepoint choice that actually renders. See
+    | resources/fonts/build_rufiyaa_font.py for the full explanation and
+    | how to update this if Unicode ever assigns a real one.
     |
     */
 
     'currency' => [
         'code' => 'MVR',
-        'sign' => "\u{20C2}", // MALDIVIAN RUFIYAA SIGN
+        'sign' => "\u{E900}", // Private Use Area placeholder for the (unassigned) Maldivian rufiyaa sign
         'decimals' => 2,
         'thousands_separator' => ',',
         'decimal_separator' => '.',

@@ -1,8 +1,22 @@
 #!/usr/bin/env python3
 """
-Builds a minimal single-glyph webfont "RufiyaaSign", drawn as a stylised
-rendition of the Thaana letter Raa (ރ) with an added horizontal stroke,
-per the official MMA rufiyaa sign concept. Outputs TTF + WOFF2.
+Builds a minimal single-glyph webfont "RufiyaaSign". Outputs TTF + WOFF2.
+
+The glyph artwork is traced from resources/fonts/source/rufiyaa-reference.png
+(the official-looking Maldivian Rufiyaa sign supplied as a reference) via
+resources/fonts/source/rufiyaa-glyph-trace.svg, a clean vector trace of that
+reference produced with potrace:
+
+    convert rufiyaa-reference.png -alpha remove -alpha off -colorspace Gray \
+        -threshold 50% rufiyaa-reference.pbm
+    potrace rufiyaa-reference.pbm -s -o rufiyaa-glyph-trace.svg --flat
+
+This script loads that SVG, applies its <g transform> (fontTools' SVGPath
+does not apply group transforms itself, only path-level ones, so it's
+applied manually below), and rescales/repositions the traced outline to sit
+on the font baseline at a fixed cap height — instead of hand-drawing the
+glyph with bezier calls, so the artwork always matches the reference trace
+file exactly. Re-run this script after replacing the trace file.
 
 IMPORTANT — codepoint choice: this glyph lives at a Private Use Area (PUA)
 codepoint (U+E900 by default), NOT at U+20C2. An earlier version of this
@@ -29,9 +43,8 @@ RUFIYAA_CODEPOINT below (and config/shop.php's 'sign' value, and the
 unicode-range in resources/css/app.css) to match.
 
 This is dev tooling, not part of the running app — re-run it only if you
-want to redraw the glyph (e.g. to swap in the official MMA artwork once
-available, or to change the codepoint). It writes next to this script by
-default.
+want to redraw the glyph (e.g. to swap in a new trace, or to change the
+codepoint). It writes next to this script by default.
 
 Usage:
     pip install fonttools brotli
@@ -44,71 +57,37 @@ Then copy the outputs into place:
 import os
 
 from fontTools.fontBuilder import FontBuilder
-from fontTools.pens.ttGlyphPen import TTGlyphPen
-from fontTools.pens.cu2quPen import Cu2QuPen
 from fontTools.pens.boundsPen import BoundsPen
+from fontTools.pens.cu2quPen import Cu2QuPen
+from fontTools.pens.recordingPen import RecordingPen
+from fontTools.pens.transformPen import TransformPen
+from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.svgLib.path import SVGPath
 
 RUFIYAA_CODEPOINT = 0xE900  # Private Use Area — see module docstring.
 RUFIYAA_GLYPH_NAME = f"uni{RUFIYAA_CODEPOINT:04X}"
 
 UPM = 1000
-BASELINE_SVG_Y = 800  # svg y that maps to font baseline (font_y = 0)
-X_OFFSET = 40
-K = 0.5522847498  # bezier circle constant
+TARGET_HEIGHT = 600  # glyph height in font units, same cap-height feel as body text figures
+SIDE_BEARING = 40
 
-def tx(x, y):
-    """Map hand-authored SVG (y-down, 0..1000 viewbox) coords to font units (y-up)."""
-    return (x + X_OFFSET, BASELINE_SVG_Y - y)
+OUT_DIR = os.path.dirname(os.path.abspath(__file__))
+TRACE_SVG = os.path.join(OUT_DIR, "source", "rufiyaa-glyph-trace.svg")
 
-
-def draw_stem(pen):
-    pen.moveTo(tx(172, 800))
-    pen.lineTo(tx(172, 235))
-    pen.lineTo(tx(278, 235))
-    pen.lineTo(tx(278, 800))
-    pen.closePath()
+# The trace file's root <g> carries "translate(0,402) scale(0.1,-0.1)" (a
+# potrace convention: it emits path data in its own internal 10x scale with
+# y flipped, then undoes that with a group transform). fontTools' SVGPath
+# parses path data but ignores the enclosing <g transform>, so it is
+# applied by hand here against the raw, untransformed path coordinates.
+GROUP_TRANSFORM = (0.1, 0, 0, -0.1, 0, 402)
 
 
-def draw_hook(pen):
-    pen.moveTo(tx(278, 232))
-    pen.curveTo(tx(365, 226), tx(445, 256), tx(450, 322))
-    pen.curveTo(tx(453, 372), tx(418, 408), tx(362, 412))
-    pen.curveTo(tx(332, 414), tx(304, 405), tx(286, 390))
-    pen.lineTo(tx(286, 338))
-    pen.curveTo(tx(300, 352), tx(326, 360), tx(352, 357))
-    pen.curveTo(tx(392, 352), tx(412, 330), tx(410, 315))
-    pen.curveTo(tx(406, 278), tx(350, 262), tx(278, 268))
-    pen.closePath()
-
-
-def draw_crossbar(pen):
-    pen.moveTo(tx(105, 561))
-    pen.lineTo(tx(105, 485))
-    pen.lineTo(tx(465, 485))
-    pen.lineTo(tx(465, 561))
-    pen.closePath()
-
-
-def draw_dot(pen):
-    cx, cy, r = 382, 685, 52
-    rk = r * K
-    right = tx(cx + r, cy)
-    bottom = tx(cx, cy + r)
-    left = tx(cx - r, cy)
-    top = tx(cx, cy - r)
-    pen.moveTo(right)
-    pen.curveTo(tx(cx + r, cy + rk), tx(cx + rk, cy + r), bottom)
-    pen.curveTo(tx(cx - rk, cy + r), tx(cx - r, cy + rk), left)
-    pen.curveTo(tx(cx - r, cy - rk), tx(cx - rk, cy - r), top)
-    pen.curveTo(tx(cx + rk, cy - r), tx(cx + r, cy - rk), right)
-    pen.closePath()
-
-
-def draw_glyph(pen):
-    draw_stem(pen)
-    draw_hook(pen)
-    draw_crossbar(pen)
-    draw_dot(pen)
+def load_traced_glyph_pen():
+    """Returns a RecordingPen of the trace file's outline, in its own
+    (untransformed) raw coordinate space — i.e. before GROUP_TRANSFORM."""
+    raw_pen = RecordingPen()
+    SVGPath(TRACE_SVG).draw(raw_pen)
+    return raw_pen
 
 
 def draw_notdef(pen):
@@ -125,11 +104,33 @@ def draw_notdef(pen):
     pen.closePath()
 
 
+# --- figure out the transform that maps raw trace coordinates straight into
+#     font units: baseline-sitting, TARGET_HEIGHT tall, SIDE_BEARING from
+#     the left edge. --------------------------------------------------------
+raw_pen = load_traced_glyph_pen()
+
+svg_bounds_pen = BoundsPen(None)
+raw_pen.replay(TransformPen(svg_bounds_pen, GROUP_TRANSFORM))
+svg_xmin, svg_ymin, svg_xmax, svg_ymax = svg_bounds_pen.bounds
+# svg space is y-down (0 at top of the viewBox); svg_ymax is the visual
+# bottom of the shape, which is what should land on the font baseline.
+svg_height = svg_ymax - svg_ymin
+scale = TARGET_HEIGHT / svg_height
+
+# Compose GROUP_TRANSFORM with the font-space remap in a single matrix so
+# the traced outline only needs to be walked once:
+#   font_x = (0.1*x - svg_xmin) * scale + SIDE_BEARING
+#   font_y = (svg_ymax - (-0.1*y + 402)) * scale
+a, b, c, d = 0.1 * scale, 0.0, 0.0, 0.1 * scale
+e = SIDE_BEARING - svg_xmin * scale
+f = (svg_ymax - 402) * scale
+FONT_TRANSFORM = (a, b, c, d, e, f)
+
 # --- compute bounds for metrics -------------------------------------------------
 bounds_pen = BoundsPen(None)
-draw_glyph(bounds_pen)
+raw_pen.replay(TransformPen(bounds_pen, FONT_TRANSFORM))
 xmin, ymin, xmax, ymax = bounds_pen.bounds
-print("glyph bounds:", bounds_pen.bounds)
+print("glyph bounds (font units):", bounds_pen.bounds)
 
 notdef_bounds_pen = BoundsPen(None)
 draw_notdef(notdef_bounds_pen)
@@ -138,7 +139,7 @@ nd_xmin, nd_ymin, nd_xmax, nd_ymax = notdef_bounds_pen.bounds
 # --- build actual TrueType outlines (quadratic) ---------------------------------
 glyph_ttpen = TTGlyphPen(None)
 cu2qu_pen = Cu2QuPen(glyph_ttpen, max_err=1.0, reverse_direction=False)
-draw_glyph(cu2qu_pen)
+raw_pen.replay(TransformPen(cu2qu_pen, FONT_TRANSFORM))
 glyph = glyph_ttpen.glyph()
 
 notdef_ttpen = TTGlyphPen(None)
@@ -146,7 +147,7 @@ draw_notdef(notdef_ttpen)
 notdef_glyph = notdef_ttpen.glyph()
 
 # --- advance widths ---------------------------------------------------------------
-ADVANCE = 620
+ADVANCE = round(xmax + SIDE_BEARING)
 NOTDEF_ADVANCE = 600
 
 fb = FontBuilder(UPM, isTTF=True)
@@ -157,7 +158,7 @@ fb.setupGlyf({".notdef": notdef_glyph, RUFIYAA_GLYPH_NAME: glyph})
 
 metrics = {
     ".notdef": (NOTDEF_ADVANCE, nd_xmin),
-    RUFIYAA_GLYPH_NAME: (ADVANCE, xmin),
+    RUFIYAA_GLYPH_NAME: (ADVANCE, round(xmin)),
 }
 fb.setupHorizontalMetrics(metrics)
 fb.setupHorizontalHeader(ascent=800, descent=-200, lineGap=0)
@@ -179,8 +180,6 @@ fb.setupOS2(
 fb.setupPost()
 fb.setupHead(unitsPerEm=UPM)
 fb.setupMaxp()
-
-OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 ttf_path = os.path.join(OUT_DIR, "RufiyaaSign-Regular.ttf")
 fb.font.save(ttf_path)

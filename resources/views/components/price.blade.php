@@ -25,7 +25,7 @@
       instead (per the brief), with alt="MVR".
 --}}
 @if ($for === 'image')
-    <span {{ $attributes }}><img src="{{ asset('images/mail/rufiyaa-sign.png') }}" alt="MVR" width="11" height="16" style="display:inline-block;vertical-align:-2px;height:16px;width:auto;border:0;"> {{ money($amount, false) }}</span>
+    <span {{ $attributes }}><img src="{{ asset('images/mail/rufiyaa-sign.png') }}" alt="MVR" width="25" height="16" style="display:inline-block;vertical-align:-2px;height:16px;width:auto;border:0;"> {{ money($amount, false) }}</span>
 @else
     <span {{ $attributes->class(['price-rufiyaa', $class]) }} aria-label="MVR {{ number_format((float) $amount, 2) }}">{{ money($amount, $withSign) }}</span>
 @endif

@@ -42,14 +42,18 @@
                         @foreach ($product->images as $image)
                             <div class="group relative cursor-move rounded-lg border border-blush" draggable="true" data-image-id="{{ $image->id }}">
                                 <img src="{{ $image->thumbUrl() }}" alt="" class="aspect-square w-full rounded-lg object-cover">
-                                <form method="POST" action="{{ route('admin.products.images.destroy', [$product, $image]) }}"
-                                      onsubmit="return confirm('Remove this image?');"
-                                      class="absolute right-1 top-1">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="flex h-7 w-7 items-center justify-center rounded-full bg-espresso/70 text-beige-surface opacity-0 transition group-hover:opacity-100">
-                                        <x-icon name="close" class="h-4 w-4" />
-                                    </button>
-                                </form>
+                                {{-- A nested <form> here (inside the page's main product-update
+                                     <form>) is invalid HTML: browsers silently close the OUTER
+                                     form at this element's closing tag, which left a duplicate
+                                     "_method" field in the update form (PUT from this file's top,
+                                     DELETE from here) — the last one wins, so clicking "Update
+                                     Product" actually sent a DELETE request. Use a plain button +
+                                     fetch instead, same approach as the reorder handler below. --}}
+                                <button type="button"
+                                        data-delete-url="{{ route('admin.products.images.destroy', [$product, $image]) }}"
+                                        class="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-espresso/70 text-beige-surface opacity-0 transition group-hover:opacity-100">
+                                    <x-icon name="close" class="h-4 w-4" />
+                                </button>
                             </div>
                         @endforeach
                     </div>
@@ -158,6 +162,23 @@
                             body: JSON.stringify({ order }),
                         });
                     }
+
+                    list.querySelectorAll('[data-delete-url]').forEach((button) => {
+                        button.addEventListener('click', () => {
+                            if (! confirm('Remove this image?')) return;
+
+                            fetch(button.dataset.deleteUrl, {
+                                method: 'DELETE',
+                                headers: {
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                },
+                            }).then((response) => {
+                                if (response.ok) {
+                                    button.closest('[data-image-id]').remove();
+                                }
+                            });
+                        });
+                    });
                 });
             </script>
         @endpush

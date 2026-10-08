@@ -182,6 +182,10 @@ The webfont is generated (not hand-crafted in a font editor) by `resources/fonts
 
 Uploads (product photos, category images, logo/favicon, bank transfer receipts) go through Laravel's `public` disk (`storage/app/public`, symlinked to `public/storage` via `php artisan storage:link`). Product and category photos are automatically resized and thumbnailed by `App\Services\ImageService` (Intervention Image v2, GD driver) — see `storeWithThumbnail()` / `storeSingle()`.
 
+Image URLs (`ProductImage::url()`/`thumbUrl()`, `Category::imageUrl()`, the logo, the favicon, order receipts) are built with `asset('storage/...')` rather than `Storage::disk('public')->url()`, so they resolve against whatever host/port actually served the request instead of the `APP_URL` value baked into `.env` — images still work if you run `php artisan serve` on a non-default port, through a different local domain (Valet/Herd), etc.
+
+**If images don't appear at all:** confirm `php artisan storage:link` has been run (step 5 above creates `public/storage` as a symlink to `storage/app/public`) and that the seeded files actually landed there (`ls storage/app/public/products`) — if that directory is empty after seeding, re-run `php artisan db:seed --class=ProductSeeder`.
+
 ---
 
 ## Testing the Order Flow

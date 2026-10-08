@@ -30,7 +30,7 @@
                 <div>
                     <x-input-label for="favicon" value="Favicon" />
                     @if (setting('favicon_path'))
-                        <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url(setting('favicon_path')) }}" alt="Favicon" class="mt-2 h-10 w-10 rounded">
+                        <img src="{{ asset('storage/'.setting('favicon_path')) }}" alt="Favicon" class="mt-2 h-10 w-10 rounded">
                     @else
                         <p class="mt-2 text-xs text-espresso/60">No favicon uploaded — using the default "A" mark.</p>
                     @endif

@@ -83,6 +83,8 @@ class Category extends Model
 
     public function imageUrl(): ?string
     {
-        return $this->image ? \Storage::disk('public')->url($this->image) : null;
+        // asset(), not Storage::disk('public')->url() (which hardcodes
+        // APP_URL) — see ProductImage::url() for why.
+        return $this->image ? asset('storage/'.$this->image) : null;
     }
 }

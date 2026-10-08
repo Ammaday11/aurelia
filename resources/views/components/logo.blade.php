@@ -21,7 +21,9 @@
 --}}
 @php
     $logoPath = setting('logo_path');
-    $logoUrl = $logoPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($logoPath) : null;
+    // asset(), not Storage::disk('public')->url() (which hardcodes
+    // APP_URL) — see App\Models\ProductImage::url() for why.
+    $logoUrl = $logoPath ? asset('storage/'.$logoPath) : null;
     $shopName = setting('shop_name', config('shop.name'));
 
     $sizes = [

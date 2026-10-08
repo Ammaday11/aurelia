@@ -113,8 +113,10 @@ class Order extends Model
 
     public function receiptUrl(): ?string
     {
+        // asset(), not Storage::disk('public')->url() (which hardcodes
+        // APP_URL) — see ProductImage::url() for why.
         return $this->payment_receipt_path
-            ? \Storage::disk('public')->url($this->payment_receipt_path)
+            ? asset('storage/'.$this->payment_receipt_path)
             : null;
     }
 

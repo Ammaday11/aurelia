@@ -6,7 +6,9 @@
 --}}
 @php
     $faviconPath = setting('favicon_path');
-    $faviconUrl = $faviconPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($faviconPath) : null;
+    // asset(), not Storage::disk('public')->url() (which hardcodes
+    // APP_URL) — see App\Models\ProductImage::url() for why.
+    $faviconUrl = $faviconPath ? asset('storage/'.$faviconPath) : null;
 @endphp
 
 @if ($faviconUrl)

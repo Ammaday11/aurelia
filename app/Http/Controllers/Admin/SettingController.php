@@ -33,11 +33,11 @@ class SettingController extends Controller
         Setting::set('delivery_time_slots', json_encode(array_values(array_filter($request->input('delivery_time_slots', [])))));
 
         if ($request->hasFile('logo')) {
-            Setting::set('logo_path', $this->images->storeSingle($request->file('logo'), 'branding', 600));
+            Setting::set('logo_path', $this->images->storeSingle($request->file('logo'), 'branding', 600, trimTransparentPadding: true));
         }
 
         if ($request->hasFile('favicon')) {
-            Setting::set('favicon_path', $this->images->storeSingle($request->file('favicon'), 'branding', 256));
+            Setting::set('favicon_path', $this->images->storeSingle($request->file('favicon'), 'branding', 256, trimTransparentPadding: true));
         }
 
         return redirect()->route('admin.settings.edit')->with('success', 'Settings updated.');

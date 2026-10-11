@@ -59,8 +59,17 @@ class ImageService
     /**
      * Store a single resized image with no separate thumbnail — used for
      * the shop logo/favicon, which are displayed at one small size anyway.
+     *
+     * $trimTransparentPadding crops away any transparent margin around the
+     * artwork before resizing. Logo exports from design tools routinely
+     * leave empty canvas space around the mark; without trimming, that
+     * padding gets scaled along with the artwork by the <x-logo> component's
+     * fixed-height/object-contain display, making the visible logo render
+     * noticeably smaller than the height class it's given. Only meaningful
+     * for formats with an alpha channel, so it's opt-in (used for the logo
+     * and favicon, not category photos, which are plain photography).
      */
-    public function storeSingle(UploadedFile $file, string $directory, int $maxWidth = 800): string
+    public function storeSingle(UploadedFile $file, string $directory, int $maxWidth = 800, bool $trimTransparentPadding = false): string
     {
         $filename = Str::uuid().'.'.($file->getClientOriginalExtension() ?: 'png');
 
@@ -75,6 +84,11 @@ class ImageService
 
         $image = Image::make($file->getRealPath());
         $image->orientate();
+
+        if ($trimTransparentPadding && $image->mime() !== 'image/jpeg') {
+            $image->trim('transparent');
+        }
+
         $image->resize($maxWidth, null, function ($constraint) {
             $constraint->aspectRatio();
             $constraint->upsize();

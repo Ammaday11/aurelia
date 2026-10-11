@@ -23,7 +23,7 @@
 
         <header x-data="{ mobileOpen: false }" class="sticky top-0 z-40 border-b border-blush/70 bg-beige/95 backdrop-blur">
             <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-                <x-logo size="md" />
+                <x-logo size="lg" />
 
                 <nav class="hidden items-center gap-8 lg:flex">
                     @php
@@ -96,7 +96,7 @@
             <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
                 <div class="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
                     <div>
-                        <x-logo size="md" />
+                        <x-logo size="lg" />
                         <p class="mt-4 max-w-xs text-sm leading-relaxed text-espresso/80">
                             {{ setting('footer_tagline', 'Hand-tied bouquets and thoughtful arrangements, delivered fresh across the Maldives.') }}
                         </p>

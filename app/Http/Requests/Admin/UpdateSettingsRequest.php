@@ -35,6 +35,8 @@ class UpdateSettingsRequest extends FormRequest
 
             'hero_tagline' => ['nullable', 'string', 'max:300'],
             'about_intro' => ['nullable', 'string', 'max:1000'],
+            'about_craft_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'about_delivery_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'footer_tagline' => ['nullable', 'string', 'max:300'],
             'meta_description' => ['nullable', 'string', 'max:300'],
         ];

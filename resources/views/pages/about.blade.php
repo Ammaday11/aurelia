@@ -12,7 +12,7 @@
 
     <section class="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
-            <img src="{{ asset('images/about/rooted-in-craft.png') }}" alt="A freshly hand-tied bouquet resting on the work table, beside a ribbon spool and shears" class="aspect-[4/3] w-full rounded-xl2 object-cover shadow-card">
+            <img src="{{ setting('about_craft_image_path') ? asset('storage/'.setting('about_craft_image_path')) : asset('images/about/rooted-in-craft.png') }}" alt="A freshly hand-tied bouquet resting on the work table, beside a ribbon spool and shears" class="aspect-[4/3] w-full rounded-xl2 object-cover shadow-card">
             <div>
                 <h2 class="font-serif text-3xl text-espresso">Rooted in Craft</h2>
                 <p class="mt-4 leading-relaxed text-espresso/80">
@@ -39,7 +39,7 @@
                     the rest across Malé and beyond.
                 </p>
             </div>
-            <img src="{{ asset('images/about/delivered-with-care.png') }}" alt="A wrapped bouquet carried in the front basket of a delivery scooter" class="order-1 aspect-[4/3] w-full rounded-xl2 object-cover shadow-card lg:order-2">
+            <img src="{{ setting('about_delivery_image_path') ? asset('storage/'.setting('about_delivery_image_path')) : asset('images/about/delivered-with-care.png') }}" alt="A wrapped bouquet carried in the front basket of a delivery scooter" class="order-1 aspect-[4/3] w-full rounded-xl2 object-cover shadow-card lg:order-2">
         </div>
     </section>
 

@@ -162,6 +162,8 @@ The logo is rendered everywhere (header, footer, admin sidebar, emails, invoice,
 
 To swap it in: log in to the admin panel → **Settings** → **Shop Identity** → upload a **Logo** (SVG or PNG) and, optionally, a separate **Favicon**. Every place the logo appears updates immediately — no code changes needed.
 
+The two illustrations on the About page ("Rooted in Craft" / "Delivered with Care") work the same way: **Settings** → **Site Content** → upload a photo under either image field to replace the bundled placeholder illustration (`public/images/about/`). Leave them unset to keep the defaults.
+
 ---
 
 ## The Rufiyaa Sign

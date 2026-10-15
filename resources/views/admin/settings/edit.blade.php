@@ -139,6 +139,27 @@
                 <x-input-label for="about_intro" value="About Page Intro" />
                 <textarea id="about_intro" name="about_intro" rows="3" class="input mt-1 w-full">{{ old('about_intro', setting('about_intro')) }}</textarea>
             </div>
+
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                    <x-input-label for="about_craft_image" value='About Page — "Rooted in Craft" Image' />
+                    <img src="{{ asset(setting('about_craft_image_path') ? 'storage/'.setting('about_craft_image_path') : 'images/about/rooted-in-craft.png') }}" alt="" class="mt-2 aspect-[4/3] w-full max-w-xs rounded-lg border border-blush object-cover">
+                    <p class="mt-1 text-xs text-espresso/60">{{ setting('about_craft_image_path') ? 'Your uploaded photo.' : 'Using the bundled default illustration — upload a photo to replace it.' }}</p>
+                    <input type="file" id="about_craft_image" name="about_craft_image" accept="image/png,image/jpeg,image/webp"
+                           class="input mt-2 w-full file:mr-4 file:rounded-full file:border-0 file:bg-mocha file:px-4 file:py-2 file:text-sm file:font-semibold file:text-beige-surface">
+                    <x-input-error :messages="$errors->get('about_craft_image')" class="mt-2" />
+                </div>
+
+                <div>
+                    <x-input-label for="about_delivery_image" value='About Page — "Delivered with Care" Image' />
+                    <img src="{{ asset(setting('about_delivery_image_path') ? 'storage/'.setting('about_delivery_image_path') : 'images/about/delivered-with-care.png') }}" alt="" class="mt-2 aspect-[4/3] w-full max-w-xs rounded-lg border border-blush object-cover">
+                    <p class="mt-1 text-xs text-espresso/60">{{ setting('about_delivery_image_path') ? 'Your uploaded photo.' : 'Using the bundled default illustration — upload a photo to replace it.' }}</p>
+                    <input type="file" id="about_delivery_image" name="about_delivery_image" accept="image/png,image/jpeg,image/webp"
+                           class="input mt-2 w-full file:mr-4 file:rounded-full file:border-0 file:bg-mocha file:px-4 file:py-2 file:text-sm file:font-semibold file:text-beige-surface">
+                    <x-input-error :messages="$errors->get('about_delivery_image')" class="mt-2" />
+                </div>
+            </div>
+
             <div>
                 <x-input-label for="footer_tagline" value="Footer Tagline" />
                 <textarea id="footer_tagline" name="footer_tagline" rows="2" class="input mt-1 w-full">{{ old('footer_tagline', setting('footer_tagline')) }}</textarea>

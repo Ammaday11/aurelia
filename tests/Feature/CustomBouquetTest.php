@@ -9,7 +9,9 @@ use App\Models\Order;
 use App\Models\Ribbon;
 use App\Models\WrappingPaper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -227,6 +229,84 @@ class CustomBouquetTest extends TestCase
         $this->assertSame('Kraft Paper', $item->wrapping_paper_name);
         $this->assertSame('Satin Ribbon', $item->ribbon_name);
         $this->assertEqualsWithDelta(135.0, (float) $item->unit_price, 0.001); // 3*35 + 20 + 10
+    }
+
+    public function test_a_custom_order_defaults_to_bouquet_and_can_be_a_boutonniere(): void
+    {
+        [$rose] = $this->makeFlowers();
+
+        $this->post(route('cart.add-custom'), [
+            'flowers' => [$rose->id => 3],
+        ])->assertRedirect(route('cart.index'));
+
+        $item = Cart::content()->first();
+        $this->assertSame('bouquet', $item->type);
+        $this->assertStringStartsWith('Custom Bouquet (', $item->title);
+
+        Cart::clear();
+
+        $this->post(route('cart.add-custom'), [
+            'flowers' => [$rose->id => 1],
+            'type' => 'boutonniere',
+        ])->assertRedirect(route('cart.index'));
+
+        $item = Cart::content()->first();
+        $this->assertSame('boutonniere', $item->type);
+        $this->assertStringStartsWith('Custom Boutonnière (', $item->title);
+    }
+
+    public function test_an_identical_bouquet_and_boutonniere_selection_do_not_merge_in_the_cart(): void
+    {
+        [$rose] = $this->makeFlowers();
+
+        $this->post(route('cart.add-custom'), [
+            'flowers' => [$rose->id => 3],
+            'type' => 'bouquet',
+        ]);
+
+        $this->post(route('cart.add-custom'), [
+            'flowers' => [$rose->id => 3],
+            'type' => 'boutonniere',
+        ]);
+
+        $this->assertCount(2, Cart::content());
+    }
+
+    public function test_guest_can_upload_a_reference_image_and_it_persists_through_checkout(): void
+    {
+        Mail::fake();
+        Storage::fake('public');
+
+        [$rose] = $this->makeFlowers();
+
+        $this->post(route('cart.add-custom'), [
+            'flowers' => [$rose->id => 3],
+            'type' => 'boutonniere',
+            'reference_image' => UploadedFile::fake()->image('inspiration.jpg'),
+        ])->assertRedirect(route('cart.index'));
+
+        $cartItem = Cart::content()->first();
+        $this->assertNotNull($cartItem->referenceImageUrl);
+        $this->assertStringContainsString('/storage/', $cartItem->referenceImageUrl);
+
+        $this->post(route('checkout.store'), [
+            'name' => 'Jane Doe',
+            'phone' => '960 777-1234',
+            'email' => 'jane@example.com',
+            'delivery_address' => '123 Test Street, Malé',
+            'delivery_date' => now()->addDay()->toDateString(),
+            'delivery_time_slot' => config('shop.default_delivery_time_slots')[0],
+            'payment_method' => 'cod',
+        ]);
+
+        $order = Order::first();
+        $item = $order->items->first();
+
+        $this->assertSame('boutonniere', $item->custom_type);
+        $this->assertSame('Custom Boutonnière', $item->customTypeLabel());
+        $this->assertNotNull($item->reference_image_path);
+        Storage::disk('public')->assertExists($item->reference_image_path);
+        $this->assertStringContainsString('/storage/', $item->referenceImageUrl());
     }
 
     public function test_admin_can_manage_flowers(): void

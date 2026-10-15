@@ -105,6 +105,8 @@ class OrderService
                     'wrapping_paper_price' => null,
                     'ribbon_name' => null,
                     'ribbon_price' => null,
+                    'custom_type' => null,
+                    'reference_image_path' => null,
                 ];
             }
 
@@ -157,7 +159,9 @@ class OrderService
                 $lineTotal = round($bouquetUnitPrice * $bouquetQty, 2);
                 $subtotal += $lineTotal;
 
-                $title = 'Custom Bouquet ('.collect($flowerLines)->map(fn (array $l) => "{$l['quantity']}\u{00D7} {$l['name']}")->implode(', ').')';
+                $type = ($item['type'] ?? 'bouquet') === 'boutonniere' ? 'boutonniere' : 'bouquet';
+                $label = $type === 'boutonniere' ? 'Custom Boutonnière' : 'Custom Bouquet';
+                $title = "{$label} (".collect($flowerLines)->map(fn (array $l) => "{$l['quantity']}\u{00D7} {$l['name']}")->implode(', ').')';
 
                 $lines[] = [
                     'product' => null,
@@ -171,6 +175,8 @@ class OrderService
                     'wrapping_paper_price' => $wrappingPaper ? (float) $wrappingPaper->price : null,
                     'ribbon_name' => $ribbon?->name,
                     'ribbon_price' => $ribbon ? (float) $ribbon->price : null,
+                    'custom_type' => $type,
+                    'reference_image_path' => $item['reference_image_path'] ?? null,
                 ];
             }
 
@@ -226,6 +232,8 @@ class OrderService
                     'wrapping_paper_price' => $line['wrapping_paper_price'],
                     'ribbon_name' => $line['ribbon_name'],
                     'ribbon_price' => $line['ribbon_price'],
+                    'custom_type' => $line['custom_type'],
+                    'reference_image_path' => $line['reference_image_path'],
                 ]);
 
                 // Block overselling: decrement atomically within the same

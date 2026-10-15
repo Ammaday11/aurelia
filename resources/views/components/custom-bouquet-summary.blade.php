@@ -20,4 +20,9 @@
             ])->filter()->implode(' · ') }}
         </p>
     @endif
+    @if ($item->referenceImageUrl())
+        <a href="{{ $item->referenceImageUrl() }}" target="_blank" class="mt-1 inline-block">
+            <img src="{{ $item->referenceImageUrl() }}" alt="Reference photo" class="h-14 w-14 rounded-lg border border-blush object-cover">
+        </a>
+    @endif
 @endif

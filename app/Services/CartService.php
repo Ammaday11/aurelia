@@ -18,11 +18,13 @@ use Illuminate\Support\Str;
  *
  * Session shape: 'cart' => [
  *     '<rowId>' => ['product_id' => 1, 'quantity' => 2, 'gift_message' => '...'],
- *     // ...or, for a custom bouquet built on /custom-bouquet:
+ *     // ...or, for a custom bouquet/boutonnière built on /custom-bouquet:
  *     '<rowId>' => [
  *         'custom_flowers' => [['flower_id' => 3, 'quantity' => 6], ...],
+ *         'type' => 'bouquet',        // or 'boutonniere'
  *         'wrapping_paper_id' => 2,   // nullable — at most one
  *         'ribbon_id' => 5,           // nullable — at most one
+ *         'reference_image_path' => 'custom-reference/xyz.jpg',  // nullable — already uploaded, see addCustom()
  *         'quantity' => 1,
  *         'gift_message' => '...',
  *     ],
@@ -73,30 +75,35 @@ class CartService
     }
 
     /**
-     * Add a custom bouquet — a flower-type => stem-count selection, plus an
-     * optional wrapping paper and ribbon, built on the /custom-bouquet page
-     * — to the cart.
+     * Add a custom bouquet or boutonnière — a flower-type => stem-count
+     * selection, plus an optional wrapping paper, ribbon, and reference
+     * photo, built on the /custom-bouquet page — to the cart.
      *
      * @param  array<int, array{flower_id: int, quantity: int}>  $flowerSelections  Already filtered to quantity > 0 by the caller (see AddCustomBouquetRequest).
-     * @param  int  $quantity  How many of this exact bouquet to order.
+     * @param  string  $type  'bouquet' or 'boutonniere'.
+     * @param  string|null  $referenceImagePath  Already uploaded to the public disk by the caller (CartController::addCustom()) — the cart only ever stores the resulting path, never an UploadedFile, since session data has to survive across requests.
+     * @param  int  $quantity  How many of this exact piece to order.
      */
     public function addCustom(
         array $flowerSelections,
+        string $type = 'bouquet',
         ?int $wrappingPaperId = null,
         ?int $ribbonId = null,
+        ?string $referenceImagePath = null,
         int $quantity = 1,
         ?string $giftMessage = null
     ): string {
         $quantity = max(1, $quantity);
         $giftMessage = blank($giftMessage) ? null : trim($giftMessage);
-        $selection = $this->normalizeSelection($flowerSelections, $wrappingPaperId, $ribbonId);
+        $selection = $this->normalizeSelection($flowerSelections, $type, $wrappingPaperId, $ribbonId);
         $items = $this->raw();
 
         foreach ($items as $rowId => $item) {
             if (
                 isset($item['custom_flowers'])
-                && $this->normalizeSelection($item['custom_flowers'], $item['wrapping_paper_id'] ?? null, $item['ribbon_id'] ?? null) === $selection
+                && $this->normalizeSelection($item['custom_flowers'], $item['type'] ?? 'bouquet', $item['wrapping_paper_id'] ?? null, $item['ribbon_id'] ?? null) === $selection
                 && ($item['gift_message'] ?? null) === $giftMessage
+                && ($item['reference_image_path'] ?? null) === $referenceImagePath
             ) {
                 $items[$rowId]['quantity'] += $quantity;
                 $this->save($items);
@@ -108,8 +115,10 @@ class CartService
         $rowId = (string) Str::uuid();
         $items[$rowId] = [
             'custom_flowers' => $flowerSelections,
+            'type' => $type,
             'wrapping_paper_id' => $wrappingPaperId,
             'ribbon_id' => $ribbonId,
+            'reference_image_path' => $referenceImagePath,
             'quantity' => $quantity,
             'gift_message' => $giftMessage,
         ];
@@ -119,12 +128,12 @@ class CartService
     }
 
     /**
-     * A stable, order-independent signature for a custom bouquet's full
-     * selection (flowers + wrap + ribbon), so adding the identical bouquet
-     * twice merges into one row regardless of the order the flowers were
-     * picked in.
+     * A stable, order-independent signature for a custom piece's full
+     * selection (flowers + type + wrap + ribbon), so adding the identical
+     * piece twice merges into one row regardless of the order the flowers
+     * were picked in.
      */
-    protected function normalizeSelection(array $flowerSelections, ?int $wrappingPaperId, ?int $ribbonId): string
+    protected function normalizeSelection(array $flowerSelections, string $type, ?int $wrappingPaperId, ?int $ribbonId): string
     {
         $pairs = collect($flowerSelections)
             ->map(fn (array $s) => [(int) $s['flower_id'], (int) $s['quantity']])
@@ -132,7 +141,7 @@ class CartService
             ->values()
             ->all();
 
-        return json_encode([$pairs, $wrappingPaperId, $ribbonId]);
+        return json_encode([$pairs, $type, $wrappingPaperId, $ribbonId]);
     }
 
     public function update(string $rowId, int $quantity): void
@@ -237,8 +246,10 @@ class CartService
             'is_custom' => false,
             'product' => $product,
             'flowers' => null,
+            'type' => null,
             'wrappingPaper' => null,
             'ribbon' => null,
+            'referenceImageUrl' => null,
             'title' => $product->title,
             'quantity' => $quantity,
             'requested_quantity' => $item['quantity'],
@@ -283,6 +294,7 @@ class CartService
         /** @var Ribbon|null $ribbon */
         $ribbon = ! empty($item['ribbon_id']) ? $ribbons->get($item['ribbon_id']) : null;
 
+        $type = $item['type'] ?? 'bouquet';
         $quantity = max(1, (int) ($item['quantity'] ?? 1));
         $unitPrice = round(
             (float) $lines->sum('line_total')
@@ -296,9 +308,11 @@ class CartService
             'is_custom' => true,
             'product' => null,
             'flowers' => $lines,
+            'type' => $type,
             'wrappingPaper' => $wrappingPaper,
             'ribbon' => $ribbon,
-            'title' => $this->customTitle($lines),
+            'referenceImageUrl' => ! empty($item['reference_image_path']) ? asset('storage/'.$item['reference_image_path']) : null,
+            'title' => $this->customTitle($lines, $type),
             'quantity' => $quantity,
             'requested_quantity' => $quantity,
             'gift_message' => $item['gift_message'] ?? null,
@@ -308,9 +322,11 @@ class CartService
         ];
     }
 
-    public function customTitle(Collection $lines): string
+    public function customTitle(Collection $lines, string $type = 'bouquet'): string
     {
-        return 'Custom Bouquet ('.$lines->map(fn ($l) => "{$l->quantity}\u{00D7} {$l->flower->name}")->implode(', ').')';
+        $label = $type === 'boutonniere' ? 'Custom Boutonnière' : 'Custom Bouquet';
+
+        return "{$label} (".$lines->map(fn ($l) => "{$l->quantity}\u{00D7} {$l->flower->name}")->implode(', ').')';
     }
 
     public function count(): int

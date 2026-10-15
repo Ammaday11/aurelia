@@ -30,7 +30,7 @@
                         @foreach ($order->items as $item)
                             <tr>
                                 <td class="py-3">
-                                    <p class="text-espresso">{{ $item->isCustom() ? 'Custom Bouquet' : $item->product_title }}</p>
+                                    <p class="text-espresso">{{ $item->isCustom() ? $item->customTypeLabel() : $item->product_title }}</p>
                                     <x-custom-bouquet-summary :item="$item" />
                                     @if ($item->gift_message)
                                         <p class="text-xs italic text-espresso/60">Gift note: "{{ $item->gift_message }}"</p>

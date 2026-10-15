@@ -3,9 +3,9 @@
     <section class="bg-blush/30 py-12">
         <div class="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
             <p class="font-script text-3xl text-mocha">Design Your Own</p>
-            <h1 class="mt-2 font-serif text-4xl text-espresso">Custom Bouquet</h1>
+            <h1 class="mt-2 font-serif text-4xl text-espresso">Custom Bouquet or Boutonnière</h1>
             <p class="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-espresso/80">
-                Pick the flowers and how many of each — we'll hand-tie them into a bouquet made just for you.
+                Pick the flowers and how many of each — we'll hand-tie them into a bouquet or boutonnière made just for you.
             </p>
         </div>
     </section>
@@ -24,15 +24,37 @@
                       initialQty: {{ collect(old('flowers', []))->mapWithKeys(fn ($qty, $id) => [(int) $id => (int) $qty])->toJson() }},
                       initialWrap: {{ \Illuminate\Support\Js::from(old('wrapping_paper_id') ? (int) old('wrapping_paper_id') : null) }},
                       initialRibbon: {{ \Illuminate\Support\Js::from(old('ribbon_id') ? (int) old('ribbon_id') : null) }},
+                      initialType: {{ \Illuminate\Support\Js::from(old('type', 'bouquet')) }},
                       sign: {{ \Illuminate\Support\Js::from(rufiyaa_sign()) }},
                   })">
-            <form method="POST" action="{{ route('cart.add-custom') }}">
+            <form method="POST" action="{{ route('cart.add-custom') }}" enctype="multipart/form-data">
                 @csrf
                 <input type="hidden" name="wrapping_paper_id" :value="wrap ?? ''">
                 <input type="hidden" name="ribbon_id" :value="ribbon ?? ''">
 
                 <div class="grid grid-cols-1 gap-10 lg:grid-cols-3">
                     <div class="lg:col-span-2 space-y-10">
+                        <div>
+                            <h2 class="font-serif text-xl text-espresso">What are we making?</h2>
+                            <x-input-error :messages="$errors->get('type')" class="mb-4 mt-1" />
+
+                            <div class="mt-3 flex gap-4">
+                                <button type="button" @click="type = 'bouquet'"
+                                        class="card flex-1 p-4 text-center"
+                                        :class="type === 'bouquet' ? 'ring-2 ring-mocha' : ''">
+                                    <span class="font-serif text-base text-espresso">Bouquet</span>
+                                    <p class="mt-1 text-xs text-espresso/60">A full hand-tied bouquet.</p>
+                                </button>
+                                <button type="button" @click="type = 'boutonniere'"
+                                        class="card flex-1 p-4 text-center"
+                                        :class="type === 'boutonniere' ? 'ring-2 ring-mocha' : ''">
+                                    <span class="font-serif text-base text-espresso">Boutonnière</span>
+                                    <p class="mt-1 text-xs text-espresso/60">A small lapel arrangement.</p>
+                                </button>
+                            </div>
+                            <input type="hidden" name="type" :value="type">
+                        </div>
+
                         <div>
                             <h2 class="font-serif text-xl text-espresso">Flowers</h2>
                             <x-input-error :messages="$errors->get('flowers')" class="mb-4 mt-1" />
@@ -182,8 +204,16 @@
                                 <x-input-error :messages="$errors->get('gift_message')" class="mt-2" />
                             </div>
 
+                            <div>
+                                <label for="reference_image" class="label">Reference Photo (optional)</label>
+                                <p class="text-xs text-espresso/60">Show us a style you like and we'll use it as inspiration.</p>
+                                <input type="file" id="reference_image" name="reference_image" accept="image/*"
+                                       class="input mt-1 w-full file:mr-4 file:rounded-full file:border-0 file:bg-mocha file:px-4 file:py-2 file:text-sm file:font-semibold file:text-beige-surface">
+                                <x-input-error :messages="$errors->get('reference_image')" class="mt-2" />
+                            </div>
+
                             <button type="submit" class="btn-primary w-full" :disabled="stemCount === 0" :class="{ 'opacity-50 cursor-not-allowed': stemCount === 0 }">
-                                Add Custom Bouquet to Cart
+                                <span x-text="type === 'boutonniere' ? 'Add Custom Boutonnière to Cart' : 'Add Custom Bouquet to Cart'"></span>
                             </button>
                         </div>
                     </div>
@@ -200,7 +230,7 @@
         // Defined as a plain (non-module) inline script, so it runs and
         // registers globally before Alpine's deferred module script scans
         // the DOM for the x-data="customBouquet(...)" expression above.
-        function customBouquet({ flowers, wrappingPapers, ribbons, initialQty, initialWrap, initialRibbon, sign }) {
+        function customBouquet({ flowers, wrappingPapers, ribbons, initialQty, initialWrap, initialRibbon, initialType, sign }) {
             return {
                 flowers,
                 wrappingPapers,
@@ -208,6 +238,7 @@
                 qty: Object.fromEntries(Object.keys(flowers).map((id) => [id, initialQty[id] || 0])),
                 wrap: initialWrap,
                 ribbon: initialRibbon,
+                type: initialType === 'boutonniere' ? 'boutonniere' : 'bouquet',
 
                 get lines() {
                     return Object.entries(this.qty)

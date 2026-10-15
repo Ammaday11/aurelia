@@ -13,7 +13,11 @@
                     <div wire:key="cart-row-{{ $item->row_id }}" class="card flex gap-4 p-4 sm:p-5">
                         @if ($item->is_custom)
                             <div class="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-blush text-mocha/50 sm:h-28 sm:w-28">
-                                <x-icon name="sparkles" class="h-8 w-8" />
+                                @if ($item->referenceImageUrl)
+                                    <img src="{{ $item->referenceImageUrl }}" alt="Reference photo" class="h-full w-full object-cover">
+                                @else
+                                    <x-icon name="sparkles" class="h-8 w-8" />
+                                @endif
                             </div>
                         @else
                             <a href="{{ route('shop.show', $item->product) }}" class="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-blush sm:h-28 sm:w-28">
@@ -31,7 +35,7 @@
                             <div>
                                 <div class="flex items-start justify-between gap-2">
                                     @if ($item->is_custom)
-                                        <span class="font-serif text-lg text-espresso">Custom Bouquet</span>
+                                        <span class="font-serif text-lg text-espresso">{{ $item->type === 'boutonniere' ? 'Custom Boutonnière' : 'Custom Bouquet' }}</span>
                                     @else
                                         <a href="{{ route('shop.show', $item->product) }}" class="font-serif text-lg text-espresso hover:text-mocha">
                                             {{ $item->product->title }}

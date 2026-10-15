@@ -32,7 +32,7 @@
                 @foreach ($order->items as $item)
                     <li class="flex items-center justify-between text-sm">
                         <div>
-                            <p class="font-medium text-espresso">{{ $item->isCustom() ? 'Custom Bouquet' : $item->product_title }} &times; {{ $item->quantity }}</p>
+                            <p class="font-medium text-espresso">{{ $item->isCustom() ? $item->customTypeLabel() : $item->product_title }} &times; {{ $item->quantity }}</p>
                             <x-custom-bouquet-summary :item="$item" />
                             @if ($item->gift_message)
                                 <p class="text-xs italic text-espresso/60">Gift note: "{{ $item->gift_message }}"</p>

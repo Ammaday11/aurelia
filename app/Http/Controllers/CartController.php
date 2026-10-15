@@ -9,12 +9,15 @@ use App\Models\Flower;
 use App\Models\Product;
 use App\Models\Ribbon;
 use App\Models\WrappingPaper;
+use App\Services\ImageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class CartController extends Controller
 {
+    public function __construct(protected ImageService $images) {}
+
     public function index(): View
     {
         // The cart table itself is rendered by the <livewire:cart-page />
@@ -69,15 +72,28 @@ class CartController extends Controller
             $ribbonId = null;
         }
 
+        $type = $request->validated('type') === 'boutonniere' ? 'boutonniere' : 'bouquet';
+
+        // Uploaded eagerly, here, rather than at checkout — the cart row is
+        // just a session array and can't carry an actual file across
+        // requests, so only the resulting storage path travels with it.
+        $referenceImagePath = $request->hasFile('reference_image')
+            ? $this->images->storeSingle($request->file('reference_image'), 'custom-bouquet-references')
+            : null;
+
         Cart::addCustom(
             $selections,
+            $type,
             $wrappingPaperId,
             $ribbonId,
+            $referenceImagePath,
             (int) ($request->validated('quantity') ?? 1),
             $request->validated('gift_message'),
         );
 
-        return redirect()->route('cart.index')->with('success', 'Your custom bouquet was added to your cart.');
+        $label = $type === 'boutonniere' ? 'Your custom boutonnière' : 'Your custom bouquet';
+
+        return redirect()->route('cart.index')->with('success', "{$label} was added to your cart.");
     }
 
     public function update(Request $request, string $rowId): RedirectResponse

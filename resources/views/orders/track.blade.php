@@ -69,7 +69,7 @@
                         @foreach ($order->items as $item)
                             <li class="flex items-start justify-between text-sm">
                                 <div>
-                                    <span class="text-espresso">{{ $item->isCustom() ? 'Custom Bouquet' : $item->product_title }} &times; {{ $item->quantity }}</span>
+                                    <span class="text-espresso">{{ $item->isCustom() ? $item->customTypeLabel() : $item->product_title }} &times; {{ $item->quantity }}</span>
                                     <x-custom-bouquet-summary :item="$item" />
                                 </div>
                                 <x-price :amount="$item->line_total" class="flex-shrink-0 text-espresso" />

@@ -138,7 +138,7 @@
                         @foreach ($items as $item)
                             <li class="flex items-center justify-between gap-3 text-sm">
                                 <div class="min-w-0">
-                                    <p class="truncate font-medium text-espresso">{{ $item->is_custom ? 'Custom Bouquet' : $item->title }}</p>
+                                    <p class="truncate font-medium text-espresso">{{ $item->is_custom ? ($item->type === 'boutonniere' ? 'Custom Boutonnière' : 'Custom Bouquet') : $item->title }}</p>
                                     @if ($item->is_custom)
                                         <p class="truncate text-xs text-espresso/60">{{ $item->flowers->map(fn ($line) => "{$line->quantity}\u{00D7} {$line->flower->name}")->implode(', ') }}</p>
                                         @if ($item->wrappingPaper || $item->ribbon)

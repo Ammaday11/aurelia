@@ -23,6 +23,8 @@ class OrderItem extends Model
         'wrapping_paper_price',
         'ribbon_name',
         'ribbon_price',
+        'custom_type',
+        'reference_image_path',
     ];
 
     protected $casts = [
@@ -45,12 +47,29 @@ class OrderItem extends Model
     }
 
     /**
-     * True for a custom-bouquet line item (product_id is null, built from
-     * a flower selection instead of a catalogue Product) — see
+     * True for a custom-bouquet/boutonnière line item (product_id is null,
+     * built from a flower selection instead of a catalogue Product) — see
      * CartService::addCustom() / OrderService::placeOrder().
      */
     public function isCustom(): bool
     {
         return is_null($this->product_id) && ! empty($this->custom_flowers);
+    }
+
+    /**
+     * "Custom Bouquet" / "Custom Boutonnière", from custom_type ("bouquet"
+     * / "boutonniere") — defaults to "Custom Bouquet" for older rows
+     * placed before custom_type existed.
+     */
+    public function customTypeLabel(): string
+    {
+        return $this->custom_type === 'boutonniere' ? 'Custom Boutonnière' : 'Custom Bouquet';
+    }
+
+    public function referenceImageUrl(): ?string
+    {
+        // asset(), not Storage::disk('public')->url() (which hardcodes
+        // APP_URL) — see App\Models\ProductImage::url() for why.
+        return $this->reference_image_path ? asset('storage/'.$this->reference_image_path) : null;
     }
 }

@@ -6,8 +6,10 @@ use App\Models\Category;
 use App\Models\CustomCharge;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -16,6 +18,12 @@ use Tests\TestCase;
  * - is_automatic: applied to the total of every order placed while active.
  * - manual (is_automatic = false): only ever applied when an admin attaches
  *   it to a specific order from that order's detail page.
+ *
+ * Delivery fee itself is now just an automatic CustomCharge (moved off
+ * Settings — see the 2026_10_15_214900 migration), and that migration
+ * seeds one unconditionally, so every test here already has an active
+ * "Delivery Fee" charge of config('shop.default_delivery_fee') before it
+ * creates its own charges.
  */
 class CustomChargeTest extends TestCase
 {
@@ -60,12 +68,14 @@ class CustomChargeTest extends TestCase
         $order = Order::first();
         $this->assertNotNull($order);
 
-        // subtotal 100 + delivery_fee (config default) + 25 service charge
+        // subtotal 100 + delivery_fee (config default, itself an automatic
+        // charge now) + 25 service charge
         $deliveryFee = (float) config('shop.default_delivery_fee');
         $this->assertEqualsWithDelta(100 + $deliveryFee + 25, (float) $order->total, 0.001);
 
-        $charge = $order->charges->first();
-        $this->assertSame('Service Charge', $charge->name);
+        $this->assertCount(2, $order->charges);
+        $charge = $order->charges->firstWhere('name', 'Service Charge');
+        $this->assertNotNull($charge);
         $this->assertTrue($charge->is_automatic);
     }
 
@@ -80,7 +90,10 @@ class CustomChargeTest extends TestCase
         $this->post(route('checkout.store'), $this->checkoutPayload());
 
         $order = Order::first();
-        $this->assertCount(0, $order->charges);
+        // Just the always-on Delivery Fee charge — the inactive Service
+        // Charge never applies.
+        $this->assertCount(1, $order->charges);
+        $this->assertSame('Delivery Fee', $order->charges->first()->name);
 
         $deliveryFee = (float) config('shop.default_delivery_fee');
         $this->assertEqualsWithDelta(100 + $deliveryFee, (float) $order->total, 0.001);
@@ -97,7 +110,10 @@ class CustomChargeTest extends TestCase
         $this->post(route('checkout.store'), $this->checkoutPayload());
 
         $order = Order::first();
-        $this->assertCount(0, $order->charges);
+        // Just the always-on Delivery Fee charge — the manual Rush Order
+        // Fee never applies itself.
+        $this->assertCount(1, $order->charges);
+        $this->assertSame('Delivery Fee', $order->charges->first()->name);
     }
 
     public function test_admin_can_attach_and_detach_a_manual_charge_on_an_order(): void
@@ -122,9 +138,12 @@ class CustomChargeTest extends TestCase
 
         $order->refresh();
         $this->assertEqualsWithDelta(100 + $deliveryFee + 50, (float) $order->total, 0.001);
-        $this->assertCount(1, $order->charges);
+        // The always-on Delivery Fee charge, plus the manually attached
+        // Rush Order Fee.
+        $this->assertCount(2, $order->charges);
 
-        $orderCharge = $order->charges->first();
+        $orderCharge = $order->charges->firstWhere('name', 'Rush Order Fee');
+        $this->assertNotNull($orderCharge);
 
         $this->actingAs($admin)
             ->delete(route('admin.orders.charges.detach', [$order, $orderCharge]))
@@ -132,7 +151,8 @@ class CustomChargeTest extends TestCase
 
         $order->refresh();
         $this->assertEqualsWithDelta(100 + $deliveryFee, (float) $order->total, 0.001);
-        $this->assertCount(0, $order->charges);
+        $this->assertCount(1, $order->charges);
+        $this->assertSame('Delivery Fee', $order->charges->first()->name);
     }
 
     public function test_an_automatic_charge_cannot_be_attached_through_the_manual_attach_endpoint(): void
@@ -155,8 +175,30 @@ class CustomChargeTest extends TestCase
             ->assertSessionHas('error');
 
         $order->refresh();
-        // Still just the one automatic charge from checkout, not two.
-        $this->assertCount(1, $order->charges);
+        // Still just the two automatic charges applied at checkout
+        // (Delivery Fee + Service Charge) — not a third from the rejected
+        // manual-attach attempt.
+        $this->assertCount(2, $order->charges);
+    }
+
+    public function test_the_delivery_fee_migration_carries_over_an_existing_configured_amount(): void
+    {
+        // Simulate an install that had already customized the Settings-era
+        // delivery fee before upgrading — the move must preserve that
+        // amount, not silently reset it to the config default.
+        DB::table('custom_charges')->where('name', 'Delivery Fee')->delete();
+        Setting::set('delivery_fee', '77.50');
+
+        $migration = require database_path('migrations/2026_10_15_214900_move_delivery_fee_to_custom_charges.php');
+        $migration->up();
+
+        $this->assertDatabaseHas('custom_charges', [
+            'name' => 'Delivery Fee',
+            'amount' => 77.50,
+            'is_automatic' => true,
+            'is_active' => true,
+        ]);
+        $this->assertNull(Setting::get('delivery_fee'));
     }
 
     public function test_admin_can_manage_custom_charges(): void

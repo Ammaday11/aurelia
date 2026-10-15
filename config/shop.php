@@ -101,6 +101,10 @@ return [
         '19:00 - 21:00',
     ],
 
+    // Seed amount for the "Delivery Fee" automatic CustomCharge (see
+    // database/seeders/CustomChargeSeeder.php) — delivery fee itself is
+    // admin-managed under Custom Charges now, not a live Setting, so
+    // this value is only ever read at seed time.
     'default_delivery_fee' => 50.00,
 
     /*

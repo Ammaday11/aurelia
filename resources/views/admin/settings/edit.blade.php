@@ -86,12 +86,10 @@
         <div class="card space-y-5 p-6 sm:p-8" x-data="{ slots: {{ json_encode(old('delivery_time_slots', $timeSlots)) }} }">
             <h2 class="font-serif text-xl text-espresso">Delivery</h2>
 
-            <div>
-                <x-input-label for="delivery_fee" value="Delivery Fee ({{ rufiyaa_sign() }} MVR)" />
-                <x-text-input id="delivery_fee" name="delivery_fee" type="number" step="0.01" min="0" class="mt-1 w-full max-w-xs"
-                              value="{{ old('delivery_fee', setting('delivery_fee', config('shop.default_delivery_fee'))) }}" required />
-                <x-input-error :messages="$errors->get('delivery_fee')" class="mt-2" />
-            </div>
+            <p class="text-sm text-espresso/60">
+                The delivery fee itself is managed as an automatic charge now, not here —
+                see <a href="{{ route('admin.custom-charges.index') }}" class="text-mocha hover:underline">Custom Charges</a>.
+            </p>
 
             <div>
                 <x-input-label value="Delivery Time Slots" />

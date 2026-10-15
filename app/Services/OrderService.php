@@ -11,7 +11,6 @@ use App\Models\OrderCharge;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\Ribbon;
-use App\Models\Setting;
 use App\Models\WrappingPaper;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -181,17 +180,19 @@ class OrderService
             }
 
             $subtotal = round($subtotal, 2);
-            $deliveryFee = (float) Setting::get('delivery_fee', config('shop.default_delivery_fee'));
 
             // Every active "automatic" charge is added to this order's
-            // total the same way delivery_fee is — no customer choice
-            // involved (see CustomCharge::is_automatic). A non-automatic
-            // charge is never applied here; an admin attaches it to a
-            // specific order afterwards (see attachCharge()).
+            // total — no customer choice involved (see
+            // CustomCharge::is_automatic). Delivery fee is itself just one
+            // of these (admin-managed under Custom Charges, not Settings)
+            // rather than a special-cased amount, so it flows through here
+            // like any other. A non-automatic charge is never applied
+            // here; an admin attaches it to a specific order afterwards
+            // (see attachCharge()).
             $automaticCharges = CustomCharge::query()->active()->automatic()->ordered()->get();
             $chargesTotal = round((float) $automaticCharges->sum('amount'), 2);
 
-            $total = round($subtotal + $deliveryFee + $chargesTotal, 2);
+            $total = round($subtotal + $chargesTotal, 2);
 
             $receiptPath = null;
             if ($receipt) {
@@ -212,7 +213,12 @@ class OrderService
                 'payment_receipt_path' => $receiptPath,
                 'status' => 'pending',
                 'subtotal' => $subtotal,
-                'delivery_fee' => $deliveryFee,
+                // Always 0 on a new order now — the fee itself is one of
+                // the $automaticCharges rows created below (an OrderCharge
+                // named "Delivery Fee"). The column stays only so
+                // already-placed orders keep their original amount; see
+                // Order::recalculateTotal() and <x-order-totals>.
+                'delivery_fee' => 0,
                 'total' => $total,
                 'currency' => config('shop.currency.code'),
                 'placed_from_ip' => $ip,

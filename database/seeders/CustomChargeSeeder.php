@@ -10,6 +10,18 @@ class CustomChargeSeeder extends Seeder
     public function run(): void
     {
         $charges = [
+            // Delivery fee lives here, not in Settings — it's just an
+            // automatic charge applied to every order's total like any
+            // other (see App\Models\CustomCharge), seeded active so a
+            // fresh install still charges for delivery out of the box.
+            // Sort first so it reads naturally above the optional extras.
+            [
+                'name' => 'Delivery Fee',
+                'amount' => (float) config('shop.default_delivery_fee'),
+                'is_automatic' => true,
+                'is_active' => true,
+                'sort_order' => 0,
+            ],
             // Seeded inactive — an "automatic" charge applies to every
             // order placed while active, so this stays off until an admin
             // deliberately turns it on (Settings aren't the right place

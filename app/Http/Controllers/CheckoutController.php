@@ -31,7 +31,6 @@ class CheckoutController extends Controller
         return view('checkout.index', [
             'items' => Cart::content(),
             'subtotal' => Cart::subtotal(),
-            'deliveryFee' => (float) Setting::get('delivery_fee', config('shop.default_delivery_fee')),
             'automaticCharges' => $automaticCharges,
             'timeSlots' => Setting::getJson('delivery_time_slots', config('shop.default_delivery_time_slots')),
             'minDeliveryDate' => now()->addDay()->toDateString(),

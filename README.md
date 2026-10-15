@@ -3,7 +3,7 @@
 A full-stack flower shop website with online ordering and an admin panel, built on Laravel 10 + Blade + Tailwind CSS + Alpine.js + Livewire 3.
 
 - **Storefront:** home, shop (filter/sort/search/pagination), product detail, cart, guest checkout (Cash on Delivery or Bank Transfer with receipt upload), order confirmation + email, order tracking, about, contact.
-- **Admin panel** (`/admin`): dashboard, products (rich text, multi-image gallery with drag-reorder, featured/active toggles), categories, orders (status workflow, printable invoice), contact messages, settings (shop info, logo/favicon, delivery fee & time slots, bank details).
+- **Admin panel** (`/admin`): dashboard, products (rich text, multi-image gallery with drag-reorder, featured/active toggles), categories, orders (status workflow, printable invoice), custom charges (delivery fee + any other automatic/manual fees), contact messages, settings (shop info, logo/favicon, delivery time slots, bank details).
 - **Currency:** Maldivian Rufiyaa (MVR), displayed with a Rufiyaa sign glyph via a bundled custom webfont (at a Private Use Area codepoint — see below for why), with an image fallback for emails and the printable invoice.
 
 ---
@@ -219,10 +219,10 @@ Alongside the fixed catalogue (`Product`), customers can design their own bouque
 
 `CustomCharge` (admin-managed under **Custom Charges**) is a named, priced extra fee with two independent modes, chosen per charge:
 
-- **Automatic** (`is_automatic = true`): while active, added to the total of **every** order — products and custom bouquets alike — the same way `delivery_fee` is. Shown to the customer on the checkout page before they place the order, not sprung on them afterward.
+- **Automatic** (`is_automatic = true`): while active, added to the total of **every** order — products and custom bouquets alike. Shown to the customer on the checkout page before they place the order, not sprung on them afterward. **Delivery fee is itself just one of these** — a "Delivery Fee" charge, seeded active (see `CustomChargeSeeder`), not a separate Settings field — so admins manage its amount, and can activate/deactivate it, from this screen rather than Settings.
 - **Manual** (`is_automatic = false`, the default): never applied on its own. An admin attaches it to one specific order from that order's **Charges** card (e.g. a one-off "Rush Order Fee"), which recalculates and persists that order's `total` — see `OrderService::attachCharge()` / `detachCharge()` and `Admin\OrderController::attachCharge()` / `detachCharge()`.
 
-Every charge actually applied to an order — automatic or manually attached — becomes an `OrderCharge` row (name/amount snapshotted, like everything else on an order), so `Order::recalculateTotal()` just sums `subtotal + delivery_fee + charges`.
+Every charge actually applied to an order — automatic or manually attached — becomes an `OrderCharge` row (name/amount snapshotted, like everything else on an order), so `Order::recalculateTotal()` just sums `subtotal + delivery_fee + charges`. `orders.delivery_fee` itself is always `0` on an order placed after the 2026_10_15_214900 migration — it's kept only so orders placed before that move still show their original amount (see `<x-order-totals>`), with the real fee now living in `charges` like everything else.
 
 ## Testing the Order Flow
 

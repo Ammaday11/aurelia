@@ -162,10 +162,6 @@
                             <span>Subtotal</span>
                             <x-price :amount="$subtotal" />
                         </div>
-                        <div class="flex justify-between text-espresso/80">
-                            <span>Delivery Fee</span>
-                            <x-price :amount="$deliveryFee" />
-                        </div>
                         @foreach ($automaticCharges as $charge)
                             <div class="flex justify-between text-espresso/80">
                                 <span>{{ $charge->name }}</span>
@@ -174,7 +170,7 @@
                         @endforeach
                         <div class="flex justify-between border-t border-blush pt-2 text-base font-bold text-espresso">
                             <span>Total</span>
-                            <x-price :amount="$subtotal + $deliveryFee + $automaticCharges->sum('amount')" />
+                            <x-price :amount="$subtotal + $automaticCharges->sum('amount')" />
                         </div>
                     </div>
 

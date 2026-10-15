@@ -19,7 +19,8 @@ class SettingsSeeder extends Seeder
             'social_instagram' => 'https://instagram.com/aureliaboutonniere',
             'social_tiktok' => 'https://tiktok.com/@aureliaboutonniere',
 
-            'delivery_fee' => '50.00',
+            // Delivery fee itself is seeded in CustomChargeSeeder (admin-
+            // managed under Custom Charges, not here).
             'delivery_time_slots' => json_encode(config('shop.default_delivery_time_slots')),
 
             'bank_name' => 'Bank of Maldives',

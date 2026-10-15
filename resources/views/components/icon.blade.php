@@ -81,6 +81,14 @@
         </svg>
         @break
 
+    @case('sparkles')
+        <svg {{ $attributes }} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 3v3M11 15v3M3 9h3M15 9h3.5M5.5 5.5l2 2M14.5 11.5l2 2" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 6c0 2.76-2.24 5-5 5 2.76 0 5 2.24 5 5 0-2.76 2.24-5 5-5-2.76 0-5-2.24-5-5Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 15c0 1.66-1.34 3-3 3 1.66 0 3 1.34 3 3 0-1.66 1.34-3 3-3-1.66 0-3-1.34-3-3Z" />
+        </svg>
+        @break
+
     @default
         <svg {{ $attributes }} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
             <circle cx="12" cy="12" r="9" />

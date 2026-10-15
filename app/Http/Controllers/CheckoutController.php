@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\InsufficientStockException;
+use App\Exceptions\ItemUnavailableException;
 use App\Facades\Cart;
 use App\Http\Requests\CheckoutRequest;
 use App\Mail\OrderConfirmation;
@@ -43,7 +44,7 @@ class CheckoutController extends Controller
                 $request->file('payment_receipt'),
                 $request->ip(),
             );
-        } catch (InsufficientStockException $e) {
+        } catch (InsufficientStockException|ItemUnavailableException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
 

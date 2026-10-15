@@ -138,7 +138,10 @@
                         @foreach ($items as $item)
                             <li class="flex items-center justify-between gap-3 text-sm">
                                 <div class="min-w-0">
-                                    <p class="truncate font-medium text-espresso">{{ $item->product->title }}</p>
+                                    <p class="truncate font-medium text-espresso">{{ $item->is_custom ? 'Custom Bouquet' : $item->title }}</p>
+                                    @if ($item->is_custom)
+                                        <p class="truncate text-xs text-espresso/60">{{ $item->flowers->map(fn ($line) => "{$line->quantity}\u{00D7} {$line->flower->name}")->implode(', ') }}</p>
+                                    @endif
                                     <p class="text-xs text-espresso/60">Qty {{ $item->quantity }}</p>
                                 </div>
                                 <x-price :amount="$item->line_total" class="flex-shrink-0 text-espresso" />

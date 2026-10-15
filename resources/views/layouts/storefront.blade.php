@@ -30,6 +30,7 @@
                         $navLinks = [
                             ['route' => 'home', 'label' => 'Home'],
                             ['route' => 'shop.index', 'label' => 'Shop'],
+                            ['route' => 'custom-bouquet', 'label' => 'Custom Bouquet'],
                             ['route' => 'pages.about', 'label' => 'About'],
                             ['route' => 'pages.contact', 'label' => 'Contact'],
                             ['route' => 'orders.track.show', 'label' => 'Track Order'],

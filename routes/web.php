@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\CustomBouquetController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PageController;
@@ -27,6 +28,8 @@ Route::get('/shop/{product:slug}', [ShopController::class, 'show'])->name('shop.
 
 Route::get('/about', [PageController::class, 'about'])->name('pages.about');
 
+Route::get('/custom-bouquet', [CustomBouquetController::class, 'index'])->name('custom-bouquet');
+
 Route::get('/contact', [PageController::class, 'contact'])->name('pages.contact');
 Route::post('/contact', [PageController::class, 'submitContact'])
     ->middleware('throttle:contact')
@@ -35,6 +38,7 @@ Route::post('/contact', [PageController::class, 'submitContact'])
 Route::prefix('cart')->name('cart.')->group(function () {
     Route::get('/', [CartController::class, 'index'])->name('index');
     Route::post('/add/{product:slug}', [CartController::class, 'add'])->name('add');
+    Route::post('/add-custom', [CartController::class, 'addCustom'])->name('add-custom');
     Route::patch('/{rowId}', [CartController::class, 'update'])->name('update');
     Route::delete('/{rowId}', [CartController::class, 'remove'])->name('remove');
 });

@@ -30,13 +30,18 @@
                         @foreach ($order->items as $item)
                             <tr>
                                 <td class="py-3">
-                                    <p class="text-espresso">{{ $item->product_title }}</p>
+                                    <p class="text-espresso">{{ $item->isCustom() ? 'Custom Bouquet' : $item->product_title }}</p>
+                                    @if ($item->isCustom())
+                                        <p class="text-xs text-espresso/60">
+                                            {{ collect($item->custom_flowers)->map(fn ($f) => "{$f['quantity']}\u{00D7} {$f['name']}")->implode(', ') }}
+                                        </p>
+                                    @endif
                                     @if ($item->gift_message)
                                         <p class="text-xs italic text-espresso/60">Gift note: "{{ $item->gift_message }}"</p>
                                     @endif
-                                    @unless ($item->product)
+                                    @if (! $item->isCustom() && ! $item->product)
                                         <p class="text-xs text-red-600">(product no longer in catalogue)</p>
-                                    @endunless
+                                    @endif
                                 </td>
                                 <td class="py-3 text-espresso/80">{{ $item->quantity }}</td>
                                 <td class="py-3 text-right"><x-price :amount="$item->unit_price" /></td>

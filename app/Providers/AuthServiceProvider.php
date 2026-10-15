@@ -4,10 +4,12 @@ namespace App\Providers;
 
 use App\Models\Category;
 use App\Models\ContactMessage;
+use App\Models\Flower;
 use App\Models\Order;
 use App\Models\Product;
 use App\Policies\CategoryPolicy;
 use App\Policies\ContactMessagePolicy;
+use App\Policies\FlowerPolicy;
 use App\Policies\OrderPolicy;
 use App\Policies\ProductPolicy;
 // use Illuminate\Support\Facades\Gate;
@@ -25,6 +27,7 @@ class AuthServiceProvider extends ServiceProvider
         Category::class => CategoryPolicy::class,
         Order::class => OrderPolicy::class,
         ContactMessage::class => ContactMessagePolicy::class,
+        Flower::class => FlowerPolicy::class,
     ];
 
     /**

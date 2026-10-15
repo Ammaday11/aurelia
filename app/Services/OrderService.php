@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Exceptions\InsufficientStockException;
+use App\Exceptions\ItemUnavailableException;
+use App\Models\Flower;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -17,10 +19,14 @@ use Illuminate\Support\Facades\DB;
  * transaction with the relevant product rows locked (SELECT ... FOR
  * UPDATE), so two guests checking out the last unit of a bouquet at the
  * same instant can't both succeed — the second one gets a clear
- * InsufficientStockException instead of silently overselling.
+ * InsufficientStockException instead of silently overselling. Custom
+ * bouquet lines (see CartService::addCustom()) have no stock to guard —
+ * flowers are only checked for still being active — so they don't need
+ * row locking.
  *
- * Totals are always recalculated here from the server's own product
- * prices — the client/cart's numbers are never trusted for the charge.
+ * Totals are always recalculated here from the server's own product/
+ * flower prices — the client/cart's numbers are never trusted for the
+ * charge.
  */
 class OrderService
 {
@@ -33,6 +39,7 @@ class OrderService
      *                          special_notes, payment_method).
      *
      * @throws InsufficientStockException
+     * @throws ItemUnavailableException
      */
     public function placeOrder(array $details, ?UploadedFile $receipt, ?string $ip): Order
     {
@@ -43,20 +50,24 @@ class OrderService
         }
 
         return DB::transaction(function () use ($details, $receipt, $ip, $cartItems) {
-            $productIds = collect($cartItems)->pluck('product_id')->unique();
+            $productRows = collect($cartItems)->filter(fn (array $i) => isset($i['product_id']));
+            $customRows = collect($cartItems)->filter(fn (array $i) => isset($i['custom_flowers']));
 
             // Lock the rows we're about to decrement so a concurrent
             // checkout can't read a stale stock_quantity.
             $products = Product::query()
-                ->whereIn('id', $productIds)
+                ->whereIn('id', $productRows->pluck('product_id')->unique())
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
 
+            $flowerIds = $customRows->flatMap(fn (array $i) => collect($i['custom_flowers'])->pluck('flower_id'))->unique();
+            $flowers = Flower::query()->whereIn('id', $flowerIds)->get()->keyBy('id');
+
             $subtotal = 0.0;
             $lines = [];
 
-            foreach ($cartItems as $item) {
+            foreach ($productRows as $item) {
                 /** @var Product|null $product */
                 $product = $products->get($item['product_id']);
 
@@ -74,10 +85,49 @@ class OrderService
 
                 $lines[] = [
                     'product' => $product,
+                    'product_title' => $product->title,
                     'quantity' => $item['quantity'],
                     'unit_price' => $unitPrice,
                     'line_total' => $lineTotal,
                     'gift_message' => $item['gift_message'],
+                    'custom_flowers' => null,
+                ];
+            }
+
+            foreach ($customRows as $item) {
+                $flowerLines = [];
+
+                foreach ($item['custom_flowers'] as $selection) {
+                    /** @var Flower|null $flower */
+                    $flower = $flowers->get($selection['flower_id']);
+
+                    if (! $flower || ! $flower->is_active) {
+                        throw new ItemUnavailableException($flower?->name ?? "Flower #{$selection['flower_id']}");
+                    }
+
+                    $qty = max(1, (int) $selection['quantity']);
+
+                    $flowerLines[] = [
+                        'flower_id' => $flower->id,
+                        'name' => $flower->name,
+                        'unit_price' => (float) $flower->price_per_stem,
+                        'quantity' => $qty,
+                    ];
+                }
+
+                $bouquetUnitPrice = round(collect($flowerLines)->sum(fn (array $l) => $l['unit_price'] * $l['quantity']), 2);
+                $bouquetQty = max(1, (int) ($item['quantity'] ?? 1));
+                $lineTotal = round($bouquetUnitPrice * $bouquetQty, 2);
+                $subtotal += $lineTotal;
+
+                $lines[] = [
+                    'product' => null,
+                    'product_title' => 'Custom Bouquet ('.collect($flowerLines)->map(fn (array $l) => "{$l['quantity']}\u{00D7} {$l['name']}")->implode(', ').')',
+                    'quantity' => $bouquetQty,
+                    'unit_price' => $bouquetUnitPrice,
+                    'line_total' => $lineTotal,
+                    'gift_message' => $item['gift_message'] ?? null,
+                    'custom_flowers' => $flowerLines,
                 ];
             }
 
@@ -113,17 +163,19 @@ class OrderService
             foreach ($lines as $line) {
                 OrderItem::create([
                     'order_id' => $order->id,
-                    'product_id' => $line['product']->id,
-                    'product_title' => $line['product']->title,
+                    'product_id' => $line['product']?->id,
+                    'product_title' => $line['product_title'],
                     'unit_price' => $line['unit_price'],
                     'quantity' => $line['quantity'],
                     'line_total' => $line['line_total'],
                     'gift_message' => $line['gift_message'],
+                    'custom_flowers' => $line['custom_flowers'],
                 ]);
 
                 // Block overselling: decrement atomically within the same
-                // locked transaction.
-                $line['product']->decrement('stock_quantity', $line['quantity']);
+                // locked transaction. Custom (flower) lines have no stock
+                // to decrement.
+                $line['product']?->decrement('stock_quantity', $line['quantity']);
             }
 
             $this->cart->clear();
@@ -137,7 +189,8 @@ class OrderService
      * order restocks its items (the customer isn't getting them after
      * all); reinstating a previously-cancelled order decrements stock
      * again where possible, capped at zero rather than going negative if
-     * that stock has since been sold elsewhere.
+     * that stock has since been sold elsewhere. Custom-bouquet items have
+     * no product/stock, so they're a no-op here.
      */
     public function updateStatus(Order $order, string $newStatus): Order
     {

@@ -44,6 +44,7 @@
                             ['route' => 'admin.dashboard', 'pattern' => 'admin.dashboard', 'label' => 'Dashboard', 'icon' => 'home'],
                             ['route' => 'admin.products.index', 'pattern' => 'admin.products.*', 'label' => 'Products', 'icon' => 'flower'],
                             ['route' => 'admin.categories.index', 'pattern' => 'admin.categories.*', 'label' => 'Categories', 'icon' => 'tag'],
+                            ['route' => 'admin.flowers.index', 'pattern' => 'admin.flowers.*', 'label' => 'Flowers', 'icon' => 'sparkles'],
                             ['route' => 'admin.orders.index', 'pattern' => 'admin.orders.*', 'label' => 'Orders', 'icon' => 'box'],
                             ['route' => 'admin.messages.index', 'pattern' => 'admin.messages.*', 'label' => 'Messages', 'icon' => 'mail'],
                             ['route' => 'admin.settings.edit', 'pattern' => 'admin.settings.*', 'label' => 'Settings', 'icon' => 'cog'],

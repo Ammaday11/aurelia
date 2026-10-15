@@ -18,12 +18,14 @@ class OrderItem extends Model
         'quantity',
         'line_total',
         'gift_message',
+        'custom_flowers',
     ];
 
     protected $casts = [
         'unit_price' => 'decimal:2',
         'quantity' => 'integer',
         'line_total' => 'decimal:2',
+        'custom_flowers' => 'array',
     ];
 
     public function order(): BelongsTo
@@ -34,5 +36,15 @@ class OrderItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * True for a custom-bouquet line item (product_id is null, built from
+     * a flower selection instead of a catalogue Product) — see
+     * CartService::addCustom() / OrderService::placeOrder().
+     */
+    public function isCustom(): bool
+    {
+        return is_null($this->product_id) && ! empty($this->custom_flowers);
     }
 }

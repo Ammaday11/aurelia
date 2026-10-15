@@ -40,10 +40,14 @@ orders                  id, order_number (unique), name, phone, email, delivery_
                         status (pending|confirmed|preparing|out_for_delivery|delivered|cancelled),
                         subtotal, delivery_fee, total, currency, placed_from_ip, cancelled_at
 order_items              id, order_id→orders, product_id→products (nullable), product_title,
-                        unit_price, quantity, line_total, gift_message
+                        unit_price, quantity, line_total, gift_message, custom_flowers (nullable JSON)
+flowers                  id, name, price_per_stem, image, sort_order, is_active   — no stock_quantity;
+                        the pick list for the Custom Bouquet builder (see "Custom Bouquets" below)
 contact_messages         id, name, email, phone, subject, message, submitted_from_ip, read_at
 settings                 id, key (unique), value   — admin-managed key/value store
 ```
+
+An `order_items` row is either a catalogue line (`product_id` set) or a custom-bouquet line (`product_id` null, `custom_flowers` set to a JSON snapshot of the chosen flowers) — see `OrderItem::isCustom()`.
 
 All tables use `utf8mb4_unicode_ci` (Laravel 10's MySQL default) so "è" in *Boutonnière* and the Rufiyaa sign store and sort correctly.
 
@@ -53,8 +57,9 @@ All tables use `utf8mb4_unicode_ci` (Laravel 10's MySQL default) so "è" in *Bou
 Public:
   GET  /                               home
   GET  /shop, /shop/{product}           catalogue + detail
+  GET  /custom-bouquet                  build-your-own bouquet (flower picker)
   GET  /about, /contact (+ POST)        static pages + contact form
-  GET/POST/PATCH/DELETE /cart/...       session cart
+  GET/POST/PATCH/DELETE /cart/...       session cart (/cart/add-custom for a built bouquet)
   GET/POST /checkout                    guest checkout
   GET  /order/confirmation/{order}      confirmation page
   GET/POST /track-order                 order tracking (order # + phone)
@@ -63,7 +68,7 @@ Public:
 Admin (auth + admin middleware, prefix /admin):
   /admin/login, /admin/forgot-password, ...   Breeze auth (self-registration disabled)
   /admin/dashboard
-  /admin/products, /admin/categories          resourceful CRUD
+  /admin/products, /admin/categories, /admin/flowers   resourceful CRUD
   /admin/orders, /admin/orders/{o}/invoice    list/detail/status/printable invoice
   /admin/messages
   /admin/settings
@@ -189,6 +194,15 @@ Image URLs (`ProductImage::url()`/`thumbUrl()`, `Category::imageUrl()`, the logo
 **If images don't appear at all:** confirm `php artisan storage:link` has been run (step 5 above creates `public/storage` as a symlink to `storage/app/public`) and that the seeded files actually landed there (`ls storage/app/public/products`) — if that directory is empty after seeding, re-run `php artisan db:seed --class=ProductSeeder`.
 
 ---
+
+## Custom Bouquets
+
+Alongside the fixed catalogue (`Product`), customers can design their own bouquet at **Custom Bouquet** in the main nav: pick any mix of flower types and stem counts, add an optional gift message, and it goes through the exact same cart and checkout as a regular product.
+
+- **Flower types** (Rose, Lily, Tulip, ...) are admin-managed under **Flowers** in the sidebar — name, price per stem, a photo, active/inactive. Unlike `Product`, a `Flower` has no stock quantity; it's treated as always available while active (the shop uses artificial flowers, not perishable fresh stock).
+- `App\Services\CartService` stores a custom bouquet as a `custom_flowers` session row (flower id + stem count per flower) alongside ordinary product rows, and resolves either shape into the same display object — see the class docblock for the exact session layout.
+- At checkout, `OrderService::placeOrder()` re-validates every selected flower is still active and recalculates its price from the database (never trusting the cart's stored numbers, same principle as products), then snapshots the chosen flowers onto `OrderItem::custom_flowers` (JSON) so the order's history stays intact even if a flower is later renamed, repriced, or deleted.
+- A deactivated-mid-checkout flower throws `App\Exceptions\ItemUnavailableException` (the custom-order analogue of `InsufficientStockException`), caught the same way in `CheckoutController`.
 
 ## Testing the Order Flow
 

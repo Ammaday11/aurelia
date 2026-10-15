@@ -11,26 +11,43 @@
             <div class="space-y-4 lg:col-span-2">
                 @foreach ($items as $item)
                     <div wire:key="cart-row-{{ $item->row_id }}" class="card flex gap-4 p-4 sm:p-5">
-                        <a href="{{ route('shop.show', $item->product) }}" class="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-blush sm:h-28 sm:w-28">
-                            @if ($image = $item->product->images->first())
-                                <img src="{{ $image->thumbUrl() }}" alt="{{ $item->product->title }}" class="h-full w-full object-cover">
-                            @else
-                                <div class="flex h-full w-full items-center justify-center text-mocha/50">
-                                    <x-icon name="flower" class="h-8 w-8" />
-                                </div>
-                            @endif
-                        </a>
+                        @if ($item->is_custom)
+                            <div class="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-blush text-mocha/50 sm:h-28 sm:w-28">
+                                <x-icon name="sparkles" class="h-8 w-8" />
+                            </div>
+                        @else
+                            <a href="{{ route('shop.show', $item->product) }}" class="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-blush sm:h-28 sm:w-28">
+                                @if ($image = $item->product->images->first())
+                                    <img src="{{ $image->thumbUrl() }}" alt="{{ $item->product->title }}" class="h-full w-full object-cover">
+                                @else
+                                    <div class="flex h-full w-full items-center justify-center text-mocha/50">
+                                        <x-icon name="flower" class="h-8 w-8" />
+                                    </div>
+                                @endif
+                            </a>
+                        @endif
 
                         <div class="flex min-w-0 flex-1 flex-col justify-between">
                             <div>
                                 <div class="flex items-start justify-between gap-2">
-                                    <a href="{{ route('shop.show', $item->product) }}" class="font-serif text-lg text-espresso hover:text-mocha">
-                                        {{ $item->product->title }}
-                                    </a>
+                                    @if ($item->is_custom)
+                                        <span class="font-serif text-lg text-espresso">Custom Bouquet</span>
+                                    @else
+                                        <a href="{{ route('shop.show', $item->product) }}" class="font-serif text-lg text-espresso hover:text-mocha">
+                                            {{ $item->product->title }}
+                                        </a>
+                                    @endif
                                     <button wire:click="removeItem('{{ $item->row_id }}')" class="flex-shrink-0 text-espresso/40 hover:text-red-600" aria-label="Remove item">
                                         <x-icon name="trash" class="h-5 w-5" />
                                     </button>
                                 </div>
+
+                                @if ($item->is_custom)
+                                    <p class="text-xs text-espresso/70">
+                                        {{ $item->flowers->map(fn ($line) => "{$line->quantity}\u{00D7} {$line->flower->name}")->implode(', ') }}
+                                    </p>
+                                @endif
+
                                 <x-price :amount="$item->unit_price" class="text-sm text-mocha" />
                                 @if ($item->gift_message)
                                     <p class="mt-1 text-xs italic text-espresso/60">Gift note: "{{ \Illuminate\Support\Str::limit($item->gift_message, 60) }}"</p>
@@ -42,7 +59,7 @@
 
                             <div class="mt-3 flex items-center justify-between">
                                 <div class="flex items-center gap-2">
-                                    <input type="number" min="0" max="{{ max($item->product->stock_quantity, 1) }}"
+                                    <input type="number" min="0" max="{{ $item->is_custom ? 20 : max($item->product->stock_quantity, 1) }}"
                                            wire:model="quantities.{{ $item->row_id }}"
                                            wire:change="updateQuantity('{{ $item->row_id }}')"
                                            class="input w-20 py-1.5 text-center">

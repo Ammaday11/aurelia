@@ -53,9 +53,13 @@
                     @foreach ($categories as $category)
                         <a href="{{ route('shop.index', ['category' => $category->slug]) }}"
                            class="card flex flex-col items-center gap-3 px-4 py-10 text-center">
-                            <span class="flex h-16 w-16 items-center justify-center rounded-full bg-blush text-mocha">
-                                <x-icon name="flower" class="h-8 w-8" />
-                            </span>
+                            @if ($category->image)
+                                <img src="{{ $category->imageUrl() }}" alt="" class="h-16 w-16 rounded-full object-cover">
+                            @else
+                                <span class="flex h-16 w-16 items-center justify-center rounded-full bg-blush text-mocha">
+                                    <x-icon name="flower" class="h-8 w-8" />
+                                </span>
+                            @endif
                             <span class="font-serif text-lg text-espresso">{{ $category->name }}</span>
                             <span class="text-xs text-mocha">{{ $category->active_products_count }} {{ Str::plural('bouquet', $category->active_products_count) }}</span>
                         </a>

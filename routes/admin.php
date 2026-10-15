@@ -1,13 +1,16 @@
 <?php
 
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\CustomChargeController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\FlowerController;
 use App\Http\Controllers\Admin\MessageController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProductImageController;
+use App\Http\Controllers\Admin\RibbonController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\WrappingPaperController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -35,11 +38,21 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     Route::resource('flowers', FlowerController::class)->except(['show']);
 
+    Route::resource('wrapping-papers', WrappingPaperController::class)->except(['show'])
+        ->parameters(['wrapping-papers' => 'wrappingPaper']);
+
+    Route::resource('ribbons', RibbonController::class)->except(['show']);
+
+    Route::resource('custom-charges', CustomChargeController::class)->except(['show'])
+        ->parameters(['custom-charges' => 'customCharge']);
+
     Route::prefix('orders')->name('orders.')->group(function () {
         Route::get('/', [OrderController::class, 'index'])->name('index');
         Route::get('/{order:order_number}', [OrderController::class, 'show'])->name('show');
         Route::patch('/{order:order_number}/status', [OrderController::class, 'updateStatus'])->name('status');
         Route::get('/{order:order_number}/invoice', [OrderController::class, 'invoice'])->name('invoice');
+        Route::post('/{order:order_number}/charges', [OrderController::class, 'attachCharge'])->name('charges.attach');
+        Route::delete('/{order:order_number}/charges/{orderCharge}', [OrderController::class, 'detachCharge'])->name('charges.detach');
     });
 
     Route::prefix('messages')->name('messages.')->group(function () {

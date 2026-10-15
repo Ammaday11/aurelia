@@ -46,6 +46,14 @@
                                     <p class="text-xs text-espresso/70">
                                         {{ $item->flowers->map(fn ($line) => "{$line->quantity}\u{00D7} {$line->flower->name}")->implode(', ') }}
                                     </p>
+                                    @if ($item->wrappingPaper || $item->ribbon)
+                                        <p class="text-xs text-espresso/70">
+                                            {{ collect([
+                                                $item->wrappingPaper ? "Wrapped in {$item->wrappingPaper->name}" : null,
+                                                $item->ribbon ? "{$item->ribbon->name} ribbon" : null,
+                                            ])->filter()->implode(' · ') }}
+                                        </p>
+                                    @endif
                                 @endif
 
                                 <x-price :amount="$item->unit_price" class="text-sm text-mocha" />

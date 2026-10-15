@@ -7,6 +7,7 @@ use App\Exceptions\ItemUnavailableException;
 use App\Facades\Cart;
 use App\Http\Requests\CheckoutRequest;
 use App\Mail\OrderConfirmation;
+use App\Models\CustomCharge;
 use App\Models\Setting;
 use App\Services\OrderService;
 use Illuminate\Http\RedirectResponse;
@@ -22,10 +23,16 @@ class CheckoutController extends Controller
             return redirect()->route('cart.index')->with('error', 'Your cart is empty — add something lovely first.');
         }
 
+        // Shown to the customer before they place the order, so there are
+        // no surprise fees — the same active+automatic charges OrderService
+        // applies at checkout time (see OrderService::placeOrder()).
+        $automaticCharges = CustomCharge::query()->active()->automatic()->ordered()->get();
+
         return view('checkout.index', [
             'items' => Cart::content(),
             'subtotal' => Cart::subtotal(),
             'deliveryFee' => (float) Setting::get('delivery_fee', config('shop.default_delivery_fee')),
+            'automaticCharges' => $automaticCharges,
             'timeSlots' => Setting::getJson('delivery_time_slots', config('shop.default_delivery_time_slots')),
             'minDeliveryDate' => now()->addDay()->toDateString(),
             'bankDetails' => [

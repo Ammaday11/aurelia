@@ -19,7 +19,15 @@ Your order has been received and our florists are already preparing it.
 <tbody>
 @foreach ($order->items as $item)
 <tr>
-<td align="left">{{ $item->product_title }}</td>
+<td align="left">
+{{ $item->product_title }}
+@if ($item->wrapping_paper_name || $item->ribbon_name)
+<br><small>{{ collect([
+    $item->wrapping_paper_name ? "Wrapped in {$item->wrapping_paper_name}" : null,
+    $item->ribbon_name ? "{$item->ribbon_name} ribbon" : null,
+])->filter()->implode(' &middot; ') }}</small>
+@endif
+</td>
 <td align="center">{{ $item->quantity }}</td>
 <td align="right"><x-price :amount="$item->line_total" for="image" /></td>
 </tr>
@@ -33,6 +41,9 @@ Your order has been received and our florists are already preparing it.
 <tbody>
 <tr><td align="left">Subtotal</td><td align="right"><x-price :amount="$order->subtotal" for="image" /></td></tr>
 <tr><td align="left">Delivery Fee</td><td align="right"><x-price :amount="$order->delivery_fee" for="image" /></td></tr>
+@foreach ($order->charges as $charge)
+<tr><td align="left">{{ $charge->name }}</td><td align="right"><x-price :amount="$charge->amount" for="image" /></td></tr>
+@endforeach
 <tr><td align="left"><strong>Total</strong></td><td align="right"><strong><x-price :amount="$order->total" for="image" /></strong></td></tr>
 </tbody>
 </table>

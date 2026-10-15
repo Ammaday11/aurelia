@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Flower;
 use App\Models\Product;
+use App\Models\Ribbon;
+use App\Models\WrappingPaper;
 use Illuminate\Session\SessionManager;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -17,7 +19,13 @@ use Illuminate\Support\Str;
  * Session shape: 'cart' => [
  *     '<rowId>' => ['product_id' => 1, 'quantity' => 2, 'gift_message' => '...'],
  *     // ...or, for a custom bouquet built on /custom-bouquet:
- *     '<rowId>' => ['custom_flowers' => [['flower_id' => 3, 'quantity' => 6], ...], 'quantity' => 1, 'gift_message' => '...'],
+ *     '<rowId>' => [
+ *         'custom_flowers' => [['flower_id' => 3, 'quantity' => 6], ...],
+ *         'wrapping_paper_id' => 2,   // nullable — at most one
+ *         'ribbon_id' => 5,           // nullable — at most one
+ *         'quantity' => 1,
+ *         'gift_message' => '...',
+ *     ],
  * ]
  *
  * A row is a catalogue-product line if it has a 'product_id' key, or a
@@ -65,23 +73,29 @@ class CartService
     }
 
     /**
-     * Add a custom bouquet — a flower-type => stem-count selection built on
-     * the /custom-bouquet page — to the cart.
+     * Add a custom bouquet — a flower-type => stem-count selection, plus an
+     * optional wrapping paper and ribbon, built on the /custom-bouquet page
+     * — to the cart.
      *
      * @param  array<int, array{flower_id: int, quantity: int}>  $flowerSelections  Already filtered to quantity > 0 by the caller (see AddCustomBouquetRequest).
      * @param  int  $quantity  How many of this exact bouquet to order.
      */
-    public function addCustom(array $flowerSelections, int $quantity = 1, ?string $giftMessage = null): string
-    {
+    public function addCustom(
+        array $flowerSelections,
+        ?int $wrappingPaperId = null,
+        ?int $ribbonId = null,
+        int $quantity = 1,
+        ?string $giftMessage = null
+    ): string {
         $quantity = max(1, $quantity);
         $giftMessage = blank($giftMessage) ? null : trim($giftMessage);
-        $selection = $this->normalizeSelection($flowerSelections);
+        $selection = $this->normalizeSelection($flowerSelections, $wrappingPaperId, $ribbonId);
         $items = $this->raw();
 
         foreach ($items as $rowId => $item) {
             if (
                 isset($item['custom_flowers'])
-                && $this->normalizeSelection($item['custom_flowers']) === $selection
+                && $this->normalizeSelection($item['custom_flowers'], $item['wrapping_paper_id'] ?? null, $item['ribbon_id'] ?? null) === $selection
                 && ($item['gift_message'] ?? null) === $giftMessage
             ) {
                 $items[$rowId]['quantity'] += $quantity;
@@ -94,6 +108,8 @@ class CartService
         $rowId = (string) Str::uuid();
         $items[$rowId] = [
             'custom_flowers' => $flowerSelections,
+            'wrapping_paper_id' => $wrappingPaperId,
+            'ribbon_id' => $ribbonId,
             'quantity' => $quantity,
             'gift_message' => $giftMessage,
         ];
@@ -103,11 +119,12 @@ class CartService
     }
 
     /**
-     * A stable, order-independent signature for a flower selection, so
-     * "6 roses + 2 lilies" added twice merges into one row regardless of
-     * the order the flowers were picked in.
+     * A stable, order-independent signature for a custom bouquet's full
+     * selection (flowers + wrap + ribbon), so adding the identical bouquet
+     * twice merges into one row regardless of the order the flowers were
+     * picked in.
      */
-    protected function normalizeSelection(array $flowerSelections): string
+    protected function normalizeSelection(array $flowerSelections, ?int $wrappingPaperId, ?int $ribbonId): string
     {
         $pairs = collect($flowerSelections)
             ->map(fn (array $s) => [(int) $s['flower_id'], (int) $s['quantity']])
@@ -115,7 +132,7 @@ class CartService
             ->values()
             ->all();
 
-        return json_encode($pairs);
+        return json_encode([$pairs, $wrappingPaperId, $ribbonId]);
     }
 
     public function update(string $rowId, int $quantity): void
@@ -154,8 +171,8 @@ class CartService
 
     /**
      * Raw session line items, unlike content() which hydrates Product/
-     * Flower models. Used by OrderService, which re-fetches them itself
-     * (products under a row lock) during checkout.
+     * Flower/WrappingPaper/Ribbon models. Used by OrderService, which
+     * re-fetches them itself (products under a row lock) during checkout.
      */
     public function items(): array
     {
@@ -163,11 +180,11 @@ class CartService
     }
 
     /**
-     * Resolved cart lines — product/flower models eager-loaded, quantity
-     * clamped to available stock (products only; flowers have none), and
-     * a line_total computed from *current* prices — the cart always
-     * reflects live prices/stock; the order's own totals are what get
-     * frozen at checkout time.
+     * Resolved cart lines — product/flower/wrapping/ribbon models eager-
+     * loaded, quantity clamped to available stock (products only), and a
+     * line_total computed from *current* prices — the cart always reflects
+     * live prices/stock; the order's own totals are what get frozen at
+     * checkout time.
      */
     public function content(): Collection
     {
@@ -177,22 +194,26 @@ class CartService
             return collect();
         }
 
+        $customRows = collect($items)->filter(fn (array $i) => isset($i['custom_flowers']));
+
         $products = Product::query()
             ->whereIn('id', collect($items)->filter(fn (array $i) => isset($i['product_id']))->pluck('product_id')->unique())
             ->get()
             ->keyBy('id');
 
-        $flowerIds = collect($items)
-            ->filter(fn (array $i) => isset($i['custom_flowers']))
-            ->flatMap(fn (array $i) => collect($i['custom_flowers'])->pluck('flower_id'))
-            ->unique();
-
+        $flowerIds = $customRows->flatMap(fn (array $i) => collect($i['custom_flowers'])->pluck('flower_id'))->unique();
         $flowers = Flower::query()->whereIn('id', $flowerIds)->get()->keyBy('id');
 
+        $wrappingPaperIds = $customRows->pluck('wrapping_paper_id')->filter()->unique();
+        $wrappingPapers = WrappingPaper::query()->whereIn('id', $wrappingPaperIds)->get()->keyBy('id');
+
+        $ribbonIds = $customRows->pluck('ribbon_id')->filter()->unique();
+        $ribbons = Ribbon::query()->whereIn('id', $ribbonIds)->get()->keyBy('id');
+
         return collect($items)
-            ->map(function (array $item, string $rowId) use ($products, $flowers) {
+            ->map(function (array $item, string $rowId) use ($products, $flowers, $wrappingPapers, $ribbons) {
                 return isset($item['custom_flowers'])
-                    ? $this->resolveCustomRow($rowId, $item, $flowers)
+                    ? $this->resolveCustomRow($rowId, $item, $flowers, $wrappingPapers, $ribbons)
                     : $this->resolveProductRow($rowId, $item, $products);
             })
             ->filter()
@@ -216,6 +237,8 @@ class CartService
             'is_custom' => false,
             'product' => $product,
             'flowers' => null,
+            'wrappingPaper' => null,
+            'ribbon' => null,
             'title' => $product->title,
             'quantity' => $quantity,
             'requested_quantity' => $item['quantity'],
@@ -226,7 +249,7 @@ class CartService
         ];
     }
 
-    protected function resolveCustomRow(string $rowId, array $item, Collection $flowers): ?object
+    protected function resolveCustomRow(string $rowId, array $item, Collection $flowers, Collection $wrappingPapers, Collection $ribbons): ?object
     {
         $lines = collect($item['custom_flowers'])
             ->map(function (array $selection) use ($flowers) {
@@ -255,14 +278,26 @@ class CartService
             return null;
         }
 
+        /** @var WrappingPaper|null $wrappingPaper */
+        $wrappingPaper = ! empty($item['wrapping_paper_id']) ? $wrappingPapers->get($item['wrapping_paper_id']) : null;
+        /** @var Ribbon|null $ribbon */
+        $ribbon = ! empty($item['ribbon_id']) ? $ribbons->get($item['ribbon_id']) : null;
+
         $quantity = max(1, (int) ($item['quantity'] ?? 1));
-        $unitPrice = round((float) $lines->sum('line_total'), 2);
+        $unitPrice = round(
+            (float) $lines->sum('line_total')
+                + ($wrappingPaper ? (float) $wrappingPaper->price : 0)
+                + ($ribbon ? (float) $ribbon->price : 0),
+            2
+        );
 
         return (object) [
             'row_id' => $rowId,
             'is_custom' => true,
             'product' => null,
             'flowers' => $lines,
+            'wrappingPaper' => $wrappingPaper,
+            'ribbon' => $ribbon,
             'title' => $this->customTitle($lines),
             'quantity' => $quantity,
             'requested_quantity' => $quantity,

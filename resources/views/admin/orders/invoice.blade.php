@@ -73,7 +73,17 @@
             <tbody class="divide-y divide-blush">
                 @foreach ($order->items as $item)
                     <tr>
-                        <td class="py-3 text-espresso">{{ $item->product_title }}</td>
+                        <td class="py-3 text-espresso">
+                            {{ $item->product_title }}
+                            @if ($item->wrapping_paper_name || $item->ribbon_name)
+                                <div class="text-xs text-espresso/60">
+                                    {{ collect([
+                                        $item->wrapping_paper_name ? "Wrapped in {$item->wrapping_paper_name}" : null,
+                                        $item->ribbon_name ? "{$item->ribbon_name} ribbon" : null,
+                                    ])->filter()->implode(' · ') }}
+                                </div>
+                            @endif
+                        </td>
                         <td class="py-3 text-center text-espresso/80">{{ $item->quantity }}</td>
                         <td class="py-3 text-right"><x-price :amount="$item->unit_price" for="image" /></td>
                         <td class="py-3 text-right"><x-price :amount="$item->line_total" for="image" /></td>
@@ -84,8 +94,7 @@
 
         <div class="mt-4 flex justify-end">
             <div class="w-56 space-y-1 text-sm">
-                <div class="flex justify-between text-espresso/80"><span>Subtotal</span><x-price :amount="$order->subtotal" for="image" /></div>
-                <div class="flex justify-between text-espresso/80"><span>Delivery Fee</span><x-price :amount="$order->delivery_fee" for="image" /></div>
+                <x-order-totals :order="$order" for="image" />
                 <div class="flex justify-between border-t border-blush pt-2 text-base font-bold text-espresso"><span>Total</span><x-price :amount="$order->total" for="image" /></div>
             </div>
         </div>

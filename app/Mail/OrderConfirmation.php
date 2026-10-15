@@ -22,7 +22,7 @@ class OrderConfirmation extends Mailable
         return $this
             ->subject("Order Confirmation — {$this->order->order_number}")
             ->markdown('emails.order-confirmation', [
-                'order' => $this->order->loadMissing('items'),
+                'order' => $this->order->loadMissing('items', 'charges'),
             ]);
     }
 }

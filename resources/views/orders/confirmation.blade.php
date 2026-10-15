@@ -32,7 +32,8 @@
                 @foreach ($order->items as $item)
                     <li class="flex items-center justify-between text-sm">
                         <div>
-                            <p class="font-medium text-espresso">{{ $item->product_title }} &times; {{ $item->quantity }}</p>
+                            <p class="font-medium text-espresso">{{ $item->isCustom() ? 'Custom Bouquet' : $item->product_title }} &times; {{ $item->quantity }}</p>
+                            <x-custom-bouquet-summary :item="$item" />
                             @if ($item->gift_message)
                                 <p class="text-xs italic text-espresso/60">Gift note: "{{ $item->gift_message }}"</p>
                             @endif
@@ -43,8 +44,7 @@
             </ul>
 
             <div class="mt-5 space-y-2 border-t border-blush pt-5 text-sm">
-                <div class="flex justify-between text-espresso/80"><span>Subtotal</span><x-price :amount="$order->subtotal" /></div>
-                <div class="flex justify-between text-espresso/80"><span>Delivery Fee</span><x-price :amount="$order->delivery_fee" /></div>
+                <x-order-totals :order="$order" />
                 <div class="flex justify-between border-t border-blush pt-2 text-base font-bold text-espresso"><span>Total</span><x-price :amount="$order->total" /></div>
             </div>
 

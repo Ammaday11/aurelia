@@ -62,7 +62,7 @@
                 <textarea id="contact_address" name="contact_address" rows="2" class="input mt-1 w-full">{{ old('contact_address', setting('contact_address')) }}</textarea>
             </div>
 
-            <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                     <x-input-label for="opening_hours" value="Opening Hours" />
                     <x-text-input id="opening_hours" name="opening_hours" class="mt-1 w-full" value="{{ old('opening_hours', setting('opening_hours')) }}" />
@@ -74,6 +74,10 @@
                 <div>
                     <x-input-label for="social_instagram" value="Instagram URL" />
                     <x-text-input id="social_instagram" name="social_instagram" class="mt-1 w-full" value="{{ old('social_instagram', setting('social_instagram')) }}" />
+                </div>
+                <div>
+                    <x-input-label for="social_tiktok" value="TikTok URL" />
+                    <x-text-input id="social_tiktok" name="social_tiktok" class="mt-1 w-full" value="{{ old('social_tiktok', setting('social_tiktok')) }}" />
                 </div>
             </div>
         </div>

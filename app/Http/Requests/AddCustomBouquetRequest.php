@@ -17,6 +17,8 @@ class AddCustomBouquetRequest extends FormRequest
         return [
             'flowers' => ['required', 'array'],
             'flowers.*' => ['nullable', 'integer', 'min:0', 'max:50'],
+            'wrapping_paper_id' => ['nullable', 'integer', 'exists:wrapping_papers,id'],
+            'ribbon_id' => ['nullable', 'integer', 'exists:ribbons,id'],
             'quantity' => ['nullable', 'integer', 'min:1', 'max:20'],
             'gift_message' => ['nullable', 'string', 'max:500'],
         ];

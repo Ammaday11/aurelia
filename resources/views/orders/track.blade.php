@@ -67,16 +67,22 @@
 
                     <ul class="mt-10 space-y-3 border-t border-blush pt-5">
                         @foreach ($order->items as $item)
-                            <li class="flex items-center justify-between text-sm">
-                                <span class="text-espresso">{{ $item->product_title }} &times; {{ $item->quantity }}</span>
-                                <x-price :amount="$item->line_total" class="text-espresso" />
+                            <li class="flex items-start justify-between text-sm">
+                                <div>
+                                    <span class="text-espresso">{{ $item->isCustom() ? 'Custom Bouquet' : $item->product_title }} &times; {{ $item->quantity }}</span>
+                                    <x-custom-bouquet-summary :item="$item" />
+                                </div>
+                                <x-price :amount="$item->line_total" class="flex-shrink-0 text-espresso" />
                             </li>
                         @endforeach
                     </ul>
 
-                    <div class="mt-4 flex justify-between border-t border-blush pt-4 text-base font-bold text-espresso">
-                        <span>Total</span>
-                        <x-price :amount="$order->total" />
+                    <div class="mt-4 space-y-2 border-t border-blush pt-4 text-sm">
+                        <x-order-totals :order="$order" />
+                        <div class="flex justify-between border-t border-blush pt-2 text-base font-bold text-espresso">
+                            <span>Total</span>
+                            <x-price :amount="$order->total" />
+                        </div>
                     </div>
                 </div>
             @else

@@ -59,6 +59,26 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function charges(): HasMany
+    {
+        return $this->hasMany(OrderCharge::class);
+    }
+
+    /**
+     * subtotal + delivery_fee + every attached charge (automatic ones
+     * added at checkout, plus any an admin manually attached afterwards)
+     * — kept in sync with the stored `total` column by
+     * OrderService::placeOrder()/attachCharge()/detachCharge(), but
+     * exposed here too for display without an extra round trip.
+     */
+    public function recalculateTotal(): float
+    {
+        // charges() (a fresh query), not the possibly-stale loaded
+        // `charges` relation collection — callers use this right after
+        // inserting/deleting an OrderCharge row.
+        return round((float) $this->subtotal + (float) $this->delivery_fee + (float) $this->charges()->sum('amount'), 2);
+    }
+
     public function getRouteKeyName(): string
     {
         return 'order_number';

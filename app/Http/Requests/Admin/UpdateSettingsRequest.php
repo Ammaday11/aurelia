@@ -24,6 +24,7 @@ class UpdateSettingsRequest extends FormRequest
             'opening_hours' => ['nullable', 'string', 'max:190'],
             'social_facebook' => ['nullable', 'url', 'max:255'],
             'social_instagram' => ['nullable', 'url', 'max:255'],
+            'social_tiktok' => ['nullable', 'url', 'max:255'],
 
             'delivery_fee' => ['required', 'numeric', 'min:0', 'max:9999.99'],
             'delivery_time_slots' => ['required', 'array', 'min:1'],

@@ -4,11 +4,15 @@ namespace App\Services;
 
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\ItemUnavailableException;
+use App\Models\CustomCharge;
 use App\Models\Flower;
 use App\Models\Order;
+use App\Models\OrderCharge;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\Ribbon;
 use App\Models\Setting;
+use App\Models\WrappingPaper;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
@@ -21,12 +25,12 @@ use Illuminate\Support\Facades\DB;
  * same instant can't both succeed — the second one gets a clear
  * InsufficientStockException instead of silently overselling. Custom
  * bouquet lines (see CartService::addCustom()) have no stock to guard —
- * flowers are only checked for still being active — so they don't need
- * row locking.
+ * flowers/wrapping paper/ribbon are only checked for still being active —
+ * so they don't need row locking.
  *
  * Totals are always recalculated here from the server's own product/
- * flower prices — the client/cart's numbers are never trusted for the
- * charge.
+ * flower/wrapping/ribbon prices — the client/cart's numbers are never
+ * trusted for the charge.
  */
 class OrderService
 {
@@ -64,6 +68,12 @@ class OrderService
             $flowerIds = $customRows->flatMap(fn (array $i) => collect($i['custom_flowers'])->pluck('flower_id'))->unique();
             $flowers = Flower::query()->whereIn('id', $flowerIds)->get()->keyBy('id');
 
+            $wrappingPaperIds = $customRows->pluck('wrapping_paper_id')->filter()->unique();
+            $wrappingPapers = WrappingPaper::query()->whereIn('id', $wrappingPaperIds)->get()->keyBy('id');
+
+            $ribbonIds = $customRows->pluck('ribbon_id')->filter()->unique();
+            $ribbons = Ribbon::query()->whereIn('id', $ribbonIds)->get()->keyBy('id');
+
             $subtotal = 0.0;
             $lines = [];
 
@@ -91,6 +101,10 @@ class OrderService
                     'line_total' => $lineTotal,
                     'gift_message' => $item['gift_message'],
                     'custom_flowers' => null,
+                    'wrapping_paper_name' => null,
+                    'wrapping_paper_price' => null,
+                    'ribbon_name' => null,
+                    'ribbon_price' => null,
                 ];
             }
 
@@ -115,25 +129,63 @@ class OrderService
                     ];
                 }
 
-                $bouquetUnitPrice = round(collect($flowerLines)->sum(fn (array $l) => $l['unit_price'] * $l['quantity']), 2);
+                $wrappingPaper = null;
+                if (! empty($item['wrapping_paper_id'])) {
+                    $wrappingPaper = $wrappingPapers->get($item['wrapping_paper_id']);
+
+                    if (! $wrappingPaper || ! $wrappingPaper->is_active) {
+                        throw new ItemUnavailableException($wrappingPaper?->name ?? "Wrapping paper #{$item['wrapping_paper_id']}");
+                    }
+                }
+
+                $ribbon = null;
+                if (! empty($item['ribbon_id'])) {
+                    $ribbon = $ribbons->get($item['ribbon_id']);
+
+                    if (! $ribbon || ! $ribbon->is_active) {
+                        throw new ItemUnavailableException($ribbon?->name ?? "Ribbon #{$item['ribbon_id']}");
+                    }
+                }
+
+                $bouquetUnitPrice = round(
+                    collect($flowerLines)->sum(fn (array $l) => $l['unit_price'] * $l['quantity'])
+                        + ($wrappingPaper ? (float) $wrappingPaper->price : 0)
+                        + ($ribbon ? (float) $ribbon->price : 0),
+                    2
+                );
                 $bouquetQty = max(1, (int) ($item['quantity'] ?? 1));
                 $lineTotal = round($bouquetUnitPrice * $bouquetQty, 2);
                 $subtotal += $lineTotal;
 
+                $title = 'Custom Bouquet ('.collect($flowerLines)->map(fn (array $l) => "{$l['quantity']}\u{00D7} {$l['name']}")->implode(', ').')';
+
                 $lines[] = [
                     'product' => null,
-                    'product_title' => 'Custom Bouquet ('.collect($flowerLines)->map(fn (array $l) => "{$l['quantity']}\u{00D7} {$l['name']}")->implode(', ').')',
+                    'product_title' => $title,
                     'quantity' => $bouquetQty,
                     'unit_price' => $bouquetUnitPrice,
                     'line_total' => $lineTotal,
                     'gift_message' => $item['gift_message'] ?? null,
                     'custom_flowers' => $flowerLines,
+                    'wrapping_paper_name' => $wrappingPaper?->name,
+                    'wrapping_paper_price' => $wrappingPaper ? (float) $wrappingPaper->price : null,
+                    'ribbon_name' => $ribbon?->name,
+                    'ribbon_price' => $ribbon ? (float) $ribbon->price : null,
                 ];
             }
 
             $subtotal = round($subtotal, 2);
             $deliveryFee = (float) Setting::get('delivery_fee', config('shop.default_delivery_fee'));
-            $total = round($subtotal + $deliveryFee, 2);
+
+            // Every active "automatic" charge is added to this order's
+            // total the same way delivery_fee is — no customer choice
+            // involved (see CustomCharge::is_automatic). A non-automatic
+            // charge is never applied here; an admin attaches it to a
+            // specific order afterwards (see attachCharge()).
+            $automaticCharges = CustomCharge::query()->active()->automatic()->ordered()->get();
+            $chargesTotal = round((float) $automaticCharges->sum('amount'), 2);
+
+            $total = round($subtotal + $deliveryFee + $chargesTotal, 2);
 
             $receiptPath = null;
             if ($receipt) {
@@ -170,6 +222,10 @@ class OrderService
                     'line_total' => $line['line_total'],
                     'gift_message' => $line['gift_message'],
                     'custom_flowers' => $line['custom_flowers'],
+                    'wrapping_paper_name' => $line['wrapping_paper_name'],
+                    'wrapping_paper_price' => $line['wrapping_paper_price'],
+                    'ribbon_name' => $line['ribbon_name'],
+                    'ribbon_price' => $line['ribbon_price'],
                 ]);
 
                 // Block overselling: decrement atomically within the same
@@ -178,9 +234,64 @@ class OrderService
                 $line['product']?->decrement('stock_quantity', $line['quantity']);
             }
 
+            foreach ($automaticCharges as $charge) {
+                OrderCharge::create([
+                    'order_id' => $order->id,
+                    'custom_charge_id' => $charge->id,
+                    'name' => $charge->name,
+                    'amount' => $charge->amount,
+                    'is_automatic' => true,
+                ]);
+            }
+
             $this->cart->clear();
 
-            return $order->load('items');
+            return $order->load('items', 'charges');
+        });
+    }
+
+    /**
+     * Admin attaches a one-off charge (a non-automatic CustomCharge) to a
+     * specific order — e.g. a "Rush Order Fee" that doesn't apply to every
+     * order. name/amount are snapshotted the same way automatic charges
+     * are at checkout. Recalculates and persists the order's total.
+     */
+    public function attachCharge(Order $order, CustomCharge $charge): Order
+    {
+        return DB::transaction(function () use ($order, $charge) {
+            $order = Order::query()->whereKey($order->id)->lockForUpdate()->first();
+
+            OrderCharge::create([
+                'order_id' => $order->id,
+                'custom_charge_id' => $charge->id,
+                'name' => $charge->name,
+                'amount' => $charge->amount,
+                'is_automatic' => false,
+            ]);
+
+            $order->total = $order->recalculateTotal();
+            $order->save();
+
+            return $order->load('items', 'charges');
+        });
+    }
+
+    /**
+     * Removes a previously attached charge from an order and recalculates
+     * the total.
+     */
+    public function detachCharge(Order $order, OrderCharge $orderCharge): Order
+    {
+        return DB::transaction(function () use ($order, $orderCharge) {
+            $order = Order::query()->whereKey($order->id)->lockForUpdate()->first();
+
+            abort_unless($orderCharge->order_id === $order->id, 404);
+            $orderCharge->delete();
+
+            $order->total = $order->recalculateTotal();
+            $order->save();
+
+            return $order->load('items', 'charges');
         });
     }
 

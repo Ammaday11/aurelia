@@ -17,6 +17,7 @@ class SettingsSeeder extends Seeder
             'opening_hours' => 'Daily, 9:00am – 9:00pm',
             'social_facebook' => 'https://facebook.com/aureliaboutonniere',
             'social_instagram' => 'https://instagram.com/aureliaboutonniere',
+            'social_tiktok' => 'https://tiktok.com/@aureliaboutonniere',
 
             'delivery_fee' => '50.00',
             'delivery_time_slots' => json_encode(config('shop.default_delivery_time_slots')),

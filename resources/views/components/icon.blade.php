@@ -89,6 +89,27 @@
         </svg>
         @break
 
+    @case('gift')
+        <svg {{ $attributes }} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+            <rect x="3.5" y="9.5" width="17" height="4" rx="0.5" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 13.5h15V20a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-6.5ZM12 9.5V21M12 9.5c-1-2.5-2.8-5-4.75-5-1.4 0-2.25.9-2.25 2 0 2 2.5 3 7 3Zm0 0c1-2.5 2.8-5 4.75-5 1.4 0 2.25.9 2.25 2 0 2-2.5 3-7 3Z" />
+        </svg>
+        @break
+
+    @case('ribbon')
+        <svg {{ $attributes }} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+            <circle cx="12" cy="7" r="3.25" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 9.5 5 20.5l5.5-2 1.5 2.5 1.5-2.5 5.5 2-4.5-11" />
+        </svg>
+        @break
+
+    @case('receipt')
+        <svg {{ $attributes }} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.5 3.5h13v17l-2.25-1.5-2.25 1.5-2.25-1.5-2.25 1.5-2.25-1.5-2.25 1.5v-17Z" />
+            <path stroke-linecap="round" d="M8.5 8h7M8.5 11.5h7M8.5 15h4.5" />
+        </svg>
+        @break
+
     @default
         <svg {{ $attributes }} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
             <circle cx="12" cy="12" r="9" />

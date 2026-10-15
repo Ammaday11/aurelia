@@ -137,6 +137,9 @@
                             @if ($ig = setting('social_instagram'))
                                 <li><a href="{{ $ig }}" target="_blank" rel="noopener" class="hover:text-mocha">Instagram</a></li>
                             @endif
+                            @if ($tt = setting('social_tiktok'))
+                                <li><a href="{{ $tt }}" target="_blank" rel="noopener" class="hover:text-mocha">TikTok</a></li>
+                            @endif
                         </ul>
                     </div>
                 </div>

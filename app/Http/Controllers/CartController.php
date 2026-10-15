@@ -7,6 +7,8 @@ use App\Http\Requests\AddCustomBouquetRequest;
 use App\Http\Requests\AddToCartRequest;
 use App\Models\Flower;
 use App\Models\Product;
+use App\Models\Ribbon;
+use App\Models\WrappingPaper;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -55,7 +57,25 @@ class CartController extends Controller
             return back()->withInput()->with('error', 'Please choose at least one available flower for your custom bouquet.');
         }
 
-        Cart::addCustom($selections, (int) ($request->validated('quantity') ?? 1), $request->validated('gift_message'));
+        // Same defense-in-depth re-check for the wrapping paper/ribbon
+        // choice — only accept an id that's actually active right now.
+        $wrappingPaperId = $request->validated('wrapping_paper_id');
+        if ($wrappingPaperId && ! WrappingPaper::query()->active()->whereKey($wrappingPaperId)->exists()) {
+            $wrappingPaperId = null;
+        }
+
+        $ribbonId = $request->validated('ribbon_id');
+        if ($ribbonId && ! Ribbon::query()->active()->whereKey($ribbonId)->exists()) {
+            $ribbonId = null;
+        }
+
+        Cart::addCustom(
+            $selections,
+            $wrappingPaperId,
+            $ribbonId,
+            (int) ($request->validated('quantity') ?? 1),
+            $request->validated('gift_message'),
+        );
 
         return redirect()->route('cart.index')->with('success', 'Your custom bouquet was added to your cart.');
     }

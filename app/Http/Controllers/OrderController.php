@@ -11,7 +11,7 @@ class OrderController extends Controller
     public function confirmation(Order $order): View
     {
         return view('orders.confirmation', [
-            'order' => $order->load('items'),
+            'order' => $order->load('items', 'charges'),
         ]);
     }
 
@@ -33,7 +33,7 @@ class OrderController extends Controller
         $order = Order::query()
             ->where('order_number', trim($request->validated('order_number')))
             ->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', '') LIKE ?", ["%{$digitsOnly}%"])
-            ->with('items')
+            ->with('items', 'charges')
             ->first();
 
         return view('orders.track', [

@@ -31,11 +31,7 @@
                             <tr>
                                 <td class="py-3">
                                     <p class="text-espresso">{{ $item->isCustom() ? 'Custom Bouquet' : $item->product_title }}</p>
-                                    @if ($item->isCustom())
-                                        <p class="text-xs text-espresso/60">
-                                            {{ collect($item->custom_flowers)->map(fn ($f) => "{$f['quantity']}\u{00D7} {$f['name']}")->implode(', ') }}
-                                        </p>
-                                    @endif
+                                    <x-custom-bouquet-summary :item="$item" />
                                     @if ($item->gift_message)
                                         <p class="text-xs italic text-espresso/60">Gift note: "{{ $item->gift_message }}"</p>
                                     @endif
@@ -52,10 +48,59 @@
                 </table>
 
                 <div class="mt-4 space-y-1 border-t border-blush pt-4 text-sm">
-                    <div class="flex justify-between text-espresso/80"><span>Subtotal</span><x-price :amount="$order->subtotal" /></div>
-                    <div class="flex justify-between text-espresso/80"><span>Delivery Fee</span><x-price :amount="$order->delivery_fee" /></div>
-                    <div class="flex justify-between text-base font-bold text-espresso"><span>Total</span><x-price :amount="$order->total" /></div>
+                    <x-order-totals :order="$order" />
+                    <div class="flex justify-between border-t border-blush pt-2 text-base font-bold text-espresso"><span>Total</span><x-price :amount="$order->total" /></div>
                 </div>
+            </div>
+
+            <div class="card p-6">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-serif text-lg text-espresso">Charges</h3>
+                </div>
+
+                @if ($order->charges->isEmpty())
+                    <p class="mt-2 text-sm text-espresso/60">No extra charges on this order.</p>
+                @else
+                    <ul class="mt-3 divide-y divide-blush">
+                        @foreach ($order->charges as $charge)
+                            <li class="flex items-center justify-between gap-3 py-2 text-sm">
+                                <div>
+                                    <span class="text-espresso">{{ $charge->name }}</span>
+                                    @if ($charge->is_automatic)
+                                        <span class="badge ml-2 bg-sand/30 text-espresso">automatic</span>
+                                    @endif
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <x-price :amount="$charge->amount" />
+                                    <form method="POST" action="{{ route('admin.orders.charges.detach', [$order, $charge]) }}"
+                                          onsubmit="return confirm('Remove this charge from the order?');">
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="text-red-600 hover:underline">Remove</button>
+                                    </form>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+
+                @if ($availableCharges->isNotEmpty())
+                    <form method="POST" action="{{ route('admin.orders.charges.attach', $order) }}" class="mt-4 flex items-end gap-3">
+                        @csrf
+                        <div class="flex-1">
+                            <x-input-label for="custom_charge_id" value="Add a charge" />
+                            <select id="custom_charge_id" name="custom_charge_id" class="input mt-1 w-full">
+                                @foreach ($availableCharges as $available)
+                                    {{-- Plain "MVR" here, not money()'s Rufiyaa-sign glyph: native
+                                         <option> text renders with the OS/system font, which can't
+                                         resolve the scoped custom webfont, so the sign would show
+                                         as a tofu box inside the dropdown. --}}
+                                    <option value="{{ $available->id }}">{{ $available->name }} (MVR {{ money($available->amount, false) }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-outline">Add</button>
+                    </form>
+                @endif
             </div>
 
             <div class="card p-6">

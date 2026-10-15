@@ -4,14 +4,20 @@ namespace App\Providers;
 
 use App\Models\Category;
 use App\Models\ContactMessage;
+use App\Models\CustomCharge;
 use App\Models\Flower;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Ribbon;
+use App\Models\WrappingPaper;
 use App\Policies\CategoryPolicy;
 use App\Policies\ContactMessagePolicy;
+use App\Policies\CustomChargePolicy;
 use App\Policies\FlowerPolicy;
 use App\Policies\OrderPolicy;
 use App\Policies\ProductPolicy;
+use App\Policies\RibbonPolicy;
+use App\Policies\WrappingPaperPolicy;
 // use Illuminate\Support\Facades\Gate;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
@@ -28,6 +34,9 @@ class AuthServiceProvider extends ServiceProvider
         Order::class => OrderPolicy::class,
         ContactMessage::class => ContactMessagePolicy::class,
         Flower::class => FlowerPolicy::class,
+        WrappingPaper::class => WrappingPaperPolicy::class,
+        Ribbon::class => RibbonPolicy::class,
+        CustomCharge::class => CustomChargePolicy::class,
     ];
 
     /**

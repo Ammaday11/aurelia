@@ -141,6 +141,14 @@
                                     <p class="truncate font-medium text-espresso">{{ $item->is_custom ? 'Custom Bouquet' : $item->title }}</p>
                                     @if ($item->is_custom)
                                         <p class="truncate text-xs text-espresso/60">{{ $item->flowers->map(fn ($line) => "{$line->quantity}\u{00D7} {$line->flower->name}")->implode(', ') }}</p>
+                                        @if ($item->wrappingPaper || $item->ribbon)
+                                            <p class="truncate text-xs text-espresso/60">
+                                                {{ collect([
+                                                    $item->wrappingPaper ? "Wrapped in {$item->wrappingPaper->name}" : null,
+                                                    $item->ribbon ? "{$item->ribbon->name} ribbon" : null,
+                                                ])->filter()->implode(' · ') }}
+                                            </p>
+                                        @endif
                                     @endif
                                     <p class="text-xs text-espresso/60">Qty {{ $item->quantity }}</p>
                                 </div>
@@ -158,9 +166,15 @@
                             <span>Delivery Fee</span>
                             <x-price :amount="$deliveryFee" />
                         </div>
+                        @foreach ($automaticCharges as $charge)
+                            <div class="flex justify-between text-espresso/80">
+                                <span>{{ $charge->name }}</span>
+                                <x-price :amount="$charge->amount" />
+                            </div>
+                        @endforeach
                         <div class="flex justify-between border-t border-blush pt-2 text-base font-bold text-espresso">
                             <span>Total</span>
-                            <x-price :amount="$subtotal + $deliveryFee" />
+                            <x-price :amount="$subtotal + $deliveryFee + $automaticCharges->sum('amount')" />
                         </div>
                     </div>
 

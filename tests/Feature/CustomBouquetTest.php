@@ -6,6 +6,8 @@ use App\Facades\Cart;
 use App\Mail\OrderConfirmation;
 use App\Models\Flower;
 use App\Models\Order;
+use App\Models\Ribbon;
+use App\Models\WrappingPaper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -146,6 +148,85 @@ class CustomBouquetTest extends TestCase
 
         $response->assertSessionHas('error');
         $this->assertSame(0, Order::count());
+    }
+
+    public function test_guest_can_add_wrapping_paper_and_ribbon_to_a_custom_bouquet(): void
+    {
+        [$rose, $lily] = $this->makeFlowers();
+        $wrap = WrappingPaper::create(['name' => 'Kraft Paper', 'price' => 20, 'is_active' => true]);
+        $ribbon = Ribbon::create(['name' => 'Satin Ribbon', 'price' => 10, 'is_active' => true]);
+
+        $this->post(route('cart.add-custom'), [
+            'flowers' => [$rose->id => 6, $lily->id => 2],
+            'wrapping_paper_id' => $wrap->id,
+            'ribbon_id' => $ribbon->id,
+        ])->assertRedirect(route('cart.index'));
+
+        // 290 (flowers) + 20 (wrap) + 10 (ribbon) = 320
+        $this->assertEqualsWithDelta(320.0, Cart::subtotal(), 0.001);
+
+        $item = Cart::content()->first();
+        $this->assertSame('Kraft Paper', $item->wrappingPaper->name);
+        $this->assertSame('Satin Ribbon', $item->ribbon->name);
+    }
+
+    public function test_an_inactive_wrapping_paper_is_silently_dropped_from_a_new_selection(): void
+    {
+        [$rose] = $this->makeFlowers();
+        $inactiveWrap = WrappingPaper::create(['name' => 'Discontinued Paper', 'price' => 20, 'is_active' => false]);
+
+        $this->post(route('cart.add-custom'), [
+            'flowers' => [$rose->id => 3],
+            'wrapping_paper_id' => $inactiveWrap->id,
+        ])->assertRedirect(route('cart.index'));
+
+        $item = Cart::content()->first();
+        $this->assertNull($item->wrappingPaper);
+        // Only the flowers' cost — the inactive wrap was never applied.
+        $this->assertEqualsWithDelta(105.0, Cart::subtotal(), 0.001);
+    }
+
+    public function test_wrapping_and_ribbon_are_snapshotted_on_the_order_and_checkout_rejects_a_deactivated_one(): void
+    {
+        Mail::fake();
+
+        [$rose] = $this->makeFlowers();
+        $wrap = WrappingPaper::create(['name' => 'Kraft Paper', 'price' => 20, 'is_active' => true]);
+        $ribbon = Ribbon::create(['name' => 'Satin Ribbon', 'price' => 10, 'is_active' => true]);
+
+        $this->post(route('cart.add-custom'), [
+            'flowers' => [$rose->id => 3],
+            'wrapping_paper_id' => $wrap->id,
+            'ribbon_id' => $ribbon->id,
+        ]);
+
+        $checkoutPayload = [
+            'name' => 'Jane Doe',
+            'phone' => '960 777-1234',
+            'email' => 'jane@example.com',
+            'delivery_address' => '123 Test Street, Malé',
+            'delivery_date' => now()->addDay()->toDateString(),
+            'delivery_time_slot' => config('shop.default_delivery_time_slots')[0],
+            'payment_method' => 'cod',
+        ];
+
+        // Simulate the admin deactivating the ribbon after it was added.
+        $ribbon->update(['is_active' => false]);
+
+        $this->post(route('checkout.store'), $checkoutPayload)
+            ->assertSessionHas('error');
+        $this->assertSame(0, Order::count());
+
+        // Re-activate and the same cart now checks out fine, with both
+        // choices snapshotted onto the order item.
+        $ribbon->update(['is_active' => true]);
+
+        $this->post(route('checkout.store'), $checkoutPayload);
+
+        $item = Order::first()->items->first();
+        $this->assertSame('Kraft Paper', $item->wrapping_paper_name);
+        $this->assertSame('Satin Ribbon', $item->ribbon_name);
+        $this->assertEqualsWithDelta(135.0, (float) $item->unit_price, 0.001); // 3*35 + 20 + 10
     }
 
     public function test_admin_can_manage_flowers(): void

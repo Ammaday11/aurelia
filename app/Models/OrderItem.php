@@ -19,6 +19,10 @@ class OrderItem extends Model
         'line_total',
         'gift_message',
         'custom_flowers',
+        'wrapping_paper_name',
+        'wrapping_paper_price',
+        'ribbon_name',
+        'ribbon_price',
     ];
 
     protected $casts = [
@@ -26,6 +30,8 @@ class OrderItem extends Model
         'quantity' => 'integer',
         'line_total' => 'decimal:2',
         'custom_flowers' => 'array',
+        'wrapping_paper_price' => 'decimal:2',
+        'ribbon_price' => 'decimal:2',
     ];
 
     public function order(): BelongsTo

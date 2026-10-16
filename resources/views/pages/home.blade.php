@@ -9,7 +9,7 @@
             <div class="mx-auto max-w-2xl text-center">
                 <p class="font-script text-4xl text-mocha sm:text-5xl">Flowers, artfully arranged</p>
                 <h1 class="mt-4 font-serif text-4xl text-espresso sm:text-5xl lg:text-6xl">
-                    Hand-tied bouquets, delivered fresh across the Maldives
+                    Thoughtfully curated florals, made just for you
                 </h1>
                 <p class="mx-auto mt-6 max-w-xl text-base leading-relaxed text-espresso/80 sm:text-lg">
                     {{ setting('hero_tagline', 'Every arrangement is crafted to order — fresh, elegant, and ready to brighten someone\'s day.') }}

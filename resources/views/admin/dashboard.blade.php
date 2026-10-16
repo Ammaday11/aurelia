@@ -55,15 +55,17 @@
 
             @if ($outOfStockCount > 0)
                 <p class="mt-3 rounded-lg bg-red-100 px-3 py-2 text-xs font-semibold text-red-700">
-                    {{ $outOfStockCount }} {{ Str::plural('product', $outOfStockCount) }} out of stock
+                    {{ $outOfStockCount }} {{ Str::plural('item', $outOfStockCount) }} out of stock
                 </p>
             @endif
 
             <ul class="mt-4 space-y-3">
-                @forelse ($lowStockProducts as $product)
+                @forelse ($lowStockItems as $item)
                     <li class="flex items-center justify-between text-sm">
-                        <a href="{{ route('admin.products.edit', $product) }}" class="text-espresso hover:text-mocha">{{ $product->title }}</a>
-                        <span class="badge bg-mocha/20 text-mocha">{{ $product->stock_quantity }} left</span>
+                        <a href="{{ $item->editUrl }}" class="text-espresso hover:text-mocha">
+                            {{ $item->name }} <span class="text-xs text-espresso/50">({{ $item->type }})</span>
+                        </a>
+                        <span class="badge bg-mocha/20 text-mocha">{{ $item->stock }} left</span>
                     </li>
                 @empty
                     <li class="text-sm text-espresso/60">All stock levels look healthy.</li>

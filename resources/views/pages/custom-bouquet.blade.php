@@ -18,9 +18,9 @@
     @else
         <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"
                   x-data="customBouquet({
-                      flowers: {{ $flowers->mapWithKeys(fn ($f) => [$f->id => ['name' => $f->name, 'price' => (float) $f->price_per_stem]])->toJson() }},
-                      wrappingPapers: {{ $wrappingPapers->mapWithKeys(fn ($w) => [$w->id => ['name' => $w->name, 'price' => (float) $w->price]])->toJson() }},
-                      ribbons: {{ $ribbons->mapWithKeys(fn ($r) => [$r->id => ['name' => $r->name, 'price' => (float) $r->price]])->toJson() }},
+                      flowers: {{ $flowers->mapWithKeys(fn ($f) => [$f->id => ['name' => $f->name, 'price' => (float) $f->price_per_stem, 'stock' => $f->stock_quantity]])->toJson() }},
+                      wrappingPapers: {{ $wrappingPapers->mapWithKeys(fn ($w) => [$w->id => ['name' => $w->name, 'price' => (float) $w->price, 'stock' => $w->stock_quantity]])->toJson() }},
+                      ribbons: {{ $ribbons->mapWithKeys(fn ($r) => [$r->id => ['name' => $r->name, 'price' => (float) $r->price, 'stock' => $r->stock_quantity]])->toJson() }},
                       initialQty: {{ collect(old('flowers', []))->mapWithKeys(fn ($qty, $id) => [(int) $id => (int) $qty])->toJson() }},
                       initialWrap: {{ \Illuminate\Support\Js::from(old('wrapping_paper_id') ? (int) old('wrapping_paper_id') : null) }},
                       initialRibbon: {{ \Illuminate\Support\Js::from(old('ribbon_id') ? (int) old('ribbon_id') : null) }},
@@ -61,8 +61,8 @@
 
                             <div class="grid grid-cols-2 gap-5 sm:grid-cols-3">
                                 @foreach ($flowers as $flower)
-                                    <div class="card flex flex-col gap-3 p-4">
-                                        <div class="aspect-square overflow-hidden rounded-lg bg-blush">
+                                    <div class="card flex flex-col gap-3 p-4 {{ $flower->stock_quantity <= 0 ? 'opacity-60' : '' }}">
+                                        <div class="relative aspect-square overflow-hidden rounded-lg bg-blush">
                                             @if ($flower->image)
                                                 <img src="{{ $flower->imageUrl() }}" alt="{{ $flower->name }}" class="h-full w-full object-cover">
                                             @else
@@ -70,24 +70,35 @@
                                                     <x-icon name="flower" class="h-10 w-10" />
                                                 </div>
                                             @endif
+                                            @if ($flower->stock_quantity <= 0)
+                                                <div class="absolute inset-0 flex items-center justify-center bg-espresso/50">
+                                                    <span class="badge bg-beige-surface text-espresso">Out of Stock</span>
+                                                </div>
+                                            @endif
                                         </div>
 
                                         <div>
                                             <p class="font-serif text-base text-espresso">{{ $flower->name }}</p>
                                             <p class="text-xs text-mocha"><x-price :amount="$flower->price_per_stem" /> / stem</p>
+                                            <p class="text-xs font-semibold {{ $flower->stock_quantity <= 0 ? 'text-red-600' : ($flower->is_low_stock ? 'text-mocha' : 'text-green-700') }}">
+                                                {{ $flower->stock_status_label }}
+                                            </p>
                                         </div>
 
                                         <div class="mt-auto flex items-center justify-center gap-3">
                                             <button type="button"
                                                     @click="decrement({{ $flower->id }})"
-                                                    class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-blush text-espresso hover:bg-blush"
+                                                    :disabled="{{ $flower->stock_quantity }} <= 0"
+                                                    class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-blush text-espresso hover:bg-blush disabled:cursor-not-allowed disabled:opacity-40"
                                                     aria-label="Fewer {{ $flower->name }}">&minus;</button>
-                                            <input type="number" name="flowers[{{ $flower->id }}]" min="0" max="50"
+                                            <input type="number" name="flowers[{{ $flower->id }}]" min="0" max="{{ $flower->stock_quantity }}"
                                                    x-model.number="qty[{{ $flower->id }}]"
-                                                   class="input w-14 py-1 text-center">
+                                                   {{ $flower->stock_quantity <= 0 ? 'disabled' : '' }}
+                                                   class="input w-14 py-1 text-center disabled:cursor-not-allowed disabled:opacity-40">
                                             <button type="button"
                                                     @click="increment({{ $flower->id }})"
-                                                    class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-blush text-espresso hover:bg-blush"
+                                                    :disabled="{{ $flower->stock_quantity }} <= 0"
+                                                    class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-blush text-espresso hover:bg-blush disabled:cursor-not-allowed disabled:opacity-40"
                                                     aria-label="More {{ $flower->name }}">+</button>
                                         </div>
                                     </div>
@@ -110,8 +121,9 @@
                                         <span class="text-xs font-semibold text-espresso">None</span>
                                     </button>
                                     @foreach ($wrappingPapers as $paper)
-                                        <button type="button" @click="wrap = {{ $paper->id }}"
-                                                class="card flex flex-col items-center gap-2 p-3 text-center"
+                                        <button type="button" @click="{{ $paper->stock_quantity > 0 ? "wrap = {$paper->id}" : '' }}"
+                                                {{ $paper->stock_quantity <= 0 ? 'disabled' : '' }}
+                                                class="card flex flex-col items-center gap-2 p-3 text-center disabled:cursor-not-allowed disabled:opacity-50"
                                                 :class="wrap === {{ $paper->id }} ? 'ring-2 ring-mocha' : ''">
                                             <div class="h-14 w-14 overflow-hidden rounded-lg bg-blush">
                                                 @if ($paper->image)
@@ -121,7 +133,11 @@
                                                 @endif
                                             </div>
                                             <span class="text-xs font-semibold text-espresso">{{ $paper->name }}</span>
-                                            <span class="text-xs text-mocha"><x-price :amount="$paper->price" /></span>
+                                            @if ($paper->stock_quantity > 0)
+                                                <span class="text-xs text-mocha"><x-price :amount="$paper->price" /></span>
+                                            @else
+                                                <span class="text-xs font-semibold text-red-600">Out of Stock</span>
+                                            @endif
                                         </button>
                                     @endforeach
                                 </div>
@@ -143,8 +159,9 @@
                                         <span class="text-xs font-semibold text-espresso">None</span>
                                     </button>
                                     @foreach ($ribbons as $r)
-                                        <button type="button" @click="ribbon = {{ $r->id }}"
-                                                class="card flex flex-col items-center gap-2 p-3 text-center"
+                                        <button type="button" @click="{{ $r->stock_quantity > 0 ? "ribbon = {$r->id}" : '' }}"
+                                                {{ $r->stock_quantity <= 0 ? 'disabled' : '' }}
+                                                class="card flex flex-col items-center gap-2 p-3 text-center disabled:cursor-not-allowed disabled:opacity-50"
                                                 :class="ribbon === {{ $r->id }} ? 'ring-2 ring-mocha' : ''">
                                             <div class="h-14 w-14 overflow-hidden rounded-lg bg-blush">
                                                 @if ($r->image)
@@ -154,7 +171,11 @@
                                                 @endif
                                             </div>
                                             <span class="text-xs font-semibold text-espresso">{{ $r->name }}</span>
-                                            <span class="text-xs text-mocha"><x-price :amount="$r->price" /></span>
+                                            @if ($r->stock_quantity > 0)
+                                                <span class="text-xs text-mocha"><x-price :amount="$r->price" /></span>
+                                            @else
+                                                <span class="text-xs font-semibold text-red-600">Out of Stock</span>
+                                            @endif
                                         </button>
                                     @endforeach
                                 </div>
@@ -264,7 +285,8 @@
                 },
 
                 increment(id) {
-                    this.qty[id] = Math.min(50, (this.qty[id] || 0) + 1);
+                    const stock = this.flowers[id]?.stock ?? 0;
+                    this.qty[id] = Math.min(stock, (this.qty[id] || 0) + 1);
                 },
 
                 decrement(id) {

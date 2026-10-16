@@ -45,13 +45,16 @@ class CartController extends Controller
 
     public function addCustom(AddCustomBouquetRequest $request): RedirectResponse
     {
-        // The builder page only renders active flowers, but the request
-        // body is attacker-controlled — re-check against the DB rather
-        // than trusting which flower_ids were posted.
-        $activeIds = Flower::query()->active()->pluck('id');
+        // The builder page only renders active, in-stock flowers, but the
+        // request body is attacker-controlled — re-check against the DB
+        // rather than trusting which flower_ids were posted. A flower with
+        // zero stock is dropped the same way an inactive one is; this is
+        // only a first line of defense though — OrderService::placeOrder()
+        // does the real, race-safe stock check at checkout.
+        $availableIds = Flower::query()->active()->inStock()->pluck('id');
 
         $selections = collect($request->validated('flowers'))
-            ->filter(fn ($quantity, $flowerId) => (int) $quantity > 0 && $activeIds->contains((int) $flowerId))
+            ->filter(fn ($quantity, $flowerId) => (int) $quantity > 0 && $availableIds->contains((int) $flowerId))
             ->map(fn ($quantity, $flowerId) => ['flower_id' => (int) $flowerId, 'quantity' => (int) $quantity])
             ->values()
             ->all();
@@ -61,14 +64,15 @@ class CartController extends Controller
         }
 
         // Same defense-in-depth re-check for the wrapping paper/ribbon
-        // choice — only accept an id that's actually active right now.
+        // choice — only accept an id that's actually active and in stock
+        // right now.
         $wrappingPaperId = $request->validated('wrapping_paper_id');
-        if ($wrappingPaperId && ! WrappingPaper::query()->active()->whereKey($wrappingPaperId)->exists()) {
+        if ($wrappingPaperId && ! WrappingPaper::query()->active()->inStock()->whereKey($wrappingPaperId)->exists()) {
             $wrappingPaperId = null;
         }
 
         $ribbonId = $request->validated('ribbon_id');
-        if ($ribbonId && ! Ribbon::query()->active()->whereKey($ribbonId)->exists()) {
+        if ($ribbonId && ! Ribbon::query()->active()->inStock()->whereKey($ribbonId)->exists()) {
             $ribbonId = null;
         }
 

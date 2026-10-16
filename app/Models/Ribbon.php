@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * A ribbon option a customer can pick (at most one) for a custom bouquet
  * on the /custom-bouquet builder — see CartService::addCustom(). Same
- * shape/role as Flower and WrappingPaper.
+ * shape/role as Flower and WrappingPaper, stock_quantity included.
  */
 class Ribbon extends Model
 {
@@ -17,6 +17,7 @@ class Ribbon extends Model
     protected $fillable = [
         'name',
         'price',
+        'stock_quantity',
         'image',
         'sort_order',
         'is_active',
@@ -24,6 +25,7 @@ class Ribbon extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
+        'stock_quantity' => 'integer',
         'sort_order' => 'integer',
         'is_active' => 'boolean',
     ];
@@ -33,9 +35,33 @@ class Ribbon extends Model
         return $query->where('is_active', true);
     }
 
+    public function scopeInStock($query)
+    {
+        return $query->where('stock_quantity', '>', 0);
+    }
+
     public function scopeOrdered($query)
     {
         return $query->orderBy('sort_order')->orderBy('name');
+    }
+
+    public function getInStockAttribute(): bool
+    {
+        return $this->stock_quantity > 0;
+    }
+
+    public function getIsLowStockAttribute(): bool
+    {
+        return $this->stock_quantity > 0 && $this->stock_quantity <= config('shop.low_stock_threshold');
+    }
+
+    public function getStockStatusLabelAttribute(): string
+    {
+        return match (true) {
+            $this->stock_quantity <= 0 => 'Out of stock',
+            $this->is_low_stock => "Only {$this->stock_quantity} left",
+            default => 'In stock',
+        };
     }
 
     public function imageUrl(): ?string

@@ -14,6 +14,7 @@
                 <tr class="border-b border-blush text-xs uppercase tracking-wide text-mocha">
                     <th class="px-5 py-3">Wrapping Paper</th>
                     <th class="px-5 py-3">Price</th>
+                    <th class="px-5 py-3">Stock</th>
                     <th class="px-5 py-3">Status</th>
                     <th class="px-5 py-3 text-right">Actions</th>
                 </tr>
@@ -34,11 +35,16 @@
                             </div>
                         </td>
                         <td class="px-5 py-3 text-espresso/80"><x-price :amount="$wrappingPaper->price" /></td>
+                        <td class="px-5 py-3 text-espresso/80">{{ $wrappingPaper->stock_quantity }}</td>
                         <td class="px-5 py-3">
-                            @if ($wrappingPaper->is_active)
-                                <span class="badge bg-sand/30 text-espresso">Active</span>
-                            @else
+                            @if (! $wrappingPaper->is_active)
                                 <span class="badge bg-blush text-espresso/60">Hidden</span>
+                            @elseif ($wrappingPaper->stock_quantity <= 0)
+                                <span class="badge bg-red-100 text-red-700">Out of Stock</span>
+                            @elseif ($wrappingPaper->is_low_stock)
+                                <span class="badge bg-mocha/20 text-mocha">Low Stock</span>
+                            @else
+                                <span class="badge bg-sand/30 text-espresso">Active</span>
                             @endif
                         </td>
                         <td class="px-5 py-3 text-right">
@@ -53,7 +59,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" class="px-5 py-8 text-center text-espresso/60">No wrapping papers yet.</td></tr>
+                    <tr><td colspan="5" class="px-5 py-8 text-center text-espresso/60">No wrapping papers yet.</td></tr>
                 @endforelse
             </tbody>
         </table>

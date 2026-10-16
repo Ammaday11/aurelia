@@ -18,9 +18,10 @@ class WrappingPaperSeeder extends Seeder
     public function run(): void
     {
         $papers = [
-            ['name' => 'Kraft Paper', 'price' => 20.00, 'image' => 'kraft-paper', 'sort_order' => 1],
-            ['name' => 'White Tissue', 'price' => 15.00, 'image' => 'white-tissue', 'sort_order' => 2],
-            ['name' => 'Blush Tissue', 'price' => 15.00, 'image' => 'blush-tissue', 'sort_order' => 3],
+            ['name' => 'Kraft Paper', 'price' => 20.00, 'stock_quantity' => 40, 'image' => 'kraft-paper', 'sort_order' => 1],
+            ['name' => 'White Tissue', 'price' => 15.00, 'stock_quantity' => 30, 'image' => 'white-tissue', 'sort_order' => 2],
+            // Deliberately low — see FlowerSeeder's Carnation for why.
+            ['name' => 'Blush Tissue', 'price' => 15.00, 'stock_quantity' => 3, 'image' => 'blush-tissue', 'sort_order' => 3],
         ];
 
         foreach ($papers as $definition) {

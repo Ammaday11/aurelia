@@ -27,15 +27,15 @@ class CustomBouquetTest extends TestCase
     protected function makeFlowers(): array
     {
         return [
-            Flower::create(['name' => 'Rose', 'price_per_stem' => 35, 'is_active' => true]),
-            Flower::create(['name' => 'Lily', 'price_per_stem' => 40, 'is_active' => true]),
+            Flower::create(['name' => 'Rose', 'price_per_stem' => 35, 'stock_quantity' => 100, 'is_active' => true]),
+            Flower::create(['name' => 'Lily', 'price_per_stem' => 40, 'stock_quantity' => 100, 'is_active' => true]),
         ];
     }
 
     public function test_the_builder_page_only_lists_active_flowers(): void
     {
-        Flower::create(['name' => 'Rose', 'price_per_stem' => 35, 'is_active' => true]);
-        Flower::create(['name' => 'Wilted Thing', 'price_per_stem' => 10, 'is_active' => false]);
+        Flower::create(['name' => 'Rose', 'price_per_stem' => 35, 'stock_quantity' => 100, 'is_active' => true]);
+        Flower::create(['name' => 'Wilted Thing', 'price_per_stem' => 10, 'stock_quantity' => 100, 'is_active' => false]);
 
         $this->get(route('custom-bouquet'))
             ->assertOk()
@@ -65,7 +65,7 @@ class CustomBouquetTest extends TestCase
 
     public function test_adding_a_bouquet_with_no_flowers_selected_is_rejected(): void
     {
-        $rose = Flower::create(['name' => 'Rose', 'price_per_stem' => 35, 'is_active' => true]);
+        $rose = Flower::create(['name' => 'Rose', 'price_per_stem' => 35, 'stock_quantity' => 100, 'is_active' => true]);
 
         $this->post(route('cart.add-custom'), [
             'flowers' => [$rose->id => 0],
@@ -76,7 +76,7 @@ class CustomBouquetTest extends TestCase
 
     public function test_an_inactive_flower_cannot_be_added_even_if_posted_directly(): void
     {
-        $inactive = Flower::create(['name' => 'Out of Season', 'price_per_stem' => 50, 'is_active' => false]);
+        $inactive = Flower::create(['name' => 'Out of Season', 'price_per_stem' => 50, 'stock_quantity' => 100, 'is_active' => false]);
 
         $this->post(route('cart.add-custom'), [
             'flowers' => [$inactive->id => 3],
@@ -155,8 +155,8 @@ class CustomBouquetTest extends TestCase
     public function test_guest_can_add_wrapping_paper_and_ribbon_to_a_custom_bouquet(): void
     {
         [$rose, $lily] = $this->makeFlowers();
-        $wrap = WrappingPaper::create(['name' => 'Kraft Paper', 'price' => 20, 'is_active' => true]);
-        $ribbon = Ribbon::create(['name' => 'Satin Ribbon', 'price' => 10, 'is_active' => true]);
+        $wrap = WrappingPaper::create(['name' => 'Kraft Paper', 'price' => 20, 'stock_quantity' => 50, 'is_active' => true]);
+        $ribbon = Ribbon::create(['name' => 'Satin Ribbon', 'price' => 10, 'stock_quantity' => 50, 'is_active' => true]);
 
         $this->post(route('cart.add-custom'), [
             'flowers' => [$rose->id => 6, $lily->id => 2],
@@ -175,7 +175,7 @@ class CustomBouquetTest extends TestCase
     public function test_an_inactive_wrapping_paper_is_silently_dropped_from_a_new_selection(): void
     {
         [$rose] = $this->makeFlowers();
-        $inactiveWrap = WrappingPaper::create(['name' => 'Discontinued Paper', 'price' => 20, 'is_active' => false]);
+        $inactiveWrap = WrappingPaper::create(['name' => 'Discontinued Paper', 'price' => 20, 'stock_quantity' => 50, 'is_active' => false]);
 
         $this->post(route('cart.add-custom'), [
             'flowers' => [$rose->id => 3],
@@ -193,8 +193,8 @@ class CustomBouquetTest extends TestCase
         Mail::fake();
 
         [$rose] = $this->makeFlowers();
-        $wrap = WrappingPaper::create(['name' => 'Kraft Paper', 'price' => 20, 'is_active' => true]);
-        $ribbon = Ribbon::create(['name' => 'Satin Ribbon', 'price' => 10, 'is_active' => true]);
+        $wrap = WrappingPaper::create(['name' => 'Kraft Paper', 'price' => 20, 'stock_quantity' => 50, 'is_active' => true]);
+        $ribbon = Ribbon::create(['name' => 'Satin Ribbon', 'price' => 10, 'stock_quantity' => 50, 'is_active' => true]);
 
         $this->post(route('cart.add-custom'), [
             'flowers' => [$rose->id => 3],
@@ -317,10 +317,11 @@ class CustomBouquetTest extends TestCase
             ->post(route('admin.flowers.store'), [
                 'name' => 'Peony',
                 'price_per_stem' => 45,
+                'stock_quantity' => 25,
                 'is_active' => '1',
             ])
             ->assertRedirect(route('admin.flowers.index'));
 
-        $this->assertDatabaseHas('flowers', ['name' => 'Peony', 'price_per_stem' => 45.00]);
+        $this->assertDatabaseHas('flowers', ['name' => 'Peony', 'price_per_stem' => 45.00, 'stock_quantity' => 25]);
     }
 }

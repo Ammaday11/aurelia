@@ -15,6 +15,12 @@
                 <x-text-input id="price_per_stem" name="price_per_stem" type="number" step="0.01" min="0" class="mt-1 w-full" value="{{ old('price_per_stem', $flower->price_per_stem ?? '') }}" required />
                 <x-input-error :messages="$errors->get('price_per_stem')" class="mt-2" />
             </div>
+
+            <div>
+                <x-input-label for="stock_quantity" value="Stock Quantity (stems)" />
+                <x-text-input id="stock_quantity" name="stock_quantity" type="number" min="0" class="mt-1 w-full" value="{{ old('stock_quantity', $flower->stock_quantity ?? 0) }}" required />
+                <x-input-error :messages="$errors->get('stock_quantity')" class="mt-2" />
+            </div>
         </div>
     </div>
 

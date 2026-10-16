@@ -15,6 +15,12 @@
                 <x-text-input id="price" name="price" type="number" step="0.01" min="0" class="mt-1 w-full" value="{{ old('price', $ribbon->price ?? '') }}" required />
                 <x-input-error :messages="$errors->get('price')" class="mt-2" />
             </div>
+
+            <div>
+                <x-input-label for="stock_quantity" value="Stock Quantity" />
+                <x-text-input id="stock_quantity" name="stock_quantity" type="number" min="0" class="mt-1 w-full" value="{{ old('stock_quantity', $ribbon->stock_quantity ?? 0) }}" required />
+                <x-input-error :messages="$errors->get('stock_quantity')" class="mt-2" />
+            </div>
         </div>
     </div>
 

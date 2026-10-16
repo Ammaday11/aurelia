@@ -41,12 +41,14 @@ orders                  id, order_number (unique), name, phone, email, delivery_
                         subtotal, delivery_fee, total, currency, placed_from_ip, cancelled_at
 order_items              id, order_id→orders, product_id→products (nullable), product_title,
                         unit_price, quantity, line_total, gift_message, custom_flowers (nullable JSON),
-                        wrapping_paper_name, wrapping_paper_price, ribbon_name, ribbon_price (all nullable)
-flowers                  id, name, price_per_stem, image, sort_order, is_active   — no stock_quantity;
+                        wrapping_paper_id→wrapping_papers, wrapping_paper_name, wrapping_paper_price,
+                        ribbon_id→ribbons, ribbon_name, ribbon_price (all nullable — the ids exist so
+                        a cancelled order can restock the right row, see "Custom Bouquets" below)
+flowers                  id, name, price_per_stem, stock_quantity, image, sort_order, is_active   —
                         the pick list for the Custom Bouquet builder (see "Custom Bouquets" below)
-wrapping_papers          id, name, price, image, sort_order, is_active   — same shape as flowers,
-                        but a single optional pick (not a stem count) on the builder
-ribbons                  id, name, price, image, sort_order, is_active   — same shape as wrapping_papers
+wrapping_papers          id, name, price, stock_quantity, image, sort_order, is_active   — same shape
+                        as flowers, but a single optional pick (not a stem count) on the builder
+ribbons                  id, name, price, stock_quantity, image, sort_order, is_active   — same shape as wrapping_papers
 custom_charges           id, name, amount, is_automatic, sort_order, is_active   — admin-defined extra
                         fees (see "Custom Charges" below)
 order_charges            id, order_id→orders, custom_charge_id→custom_charges (nullable), name,
@@ -209,10 +211,11 @@ Image URLs (`ProductImage::url()`/`thumbUrl()`, `Category::imageUrl()`, the logo
 
 Alongside the fixed catalogue (`Product`), customers can design their own bouquet at **Custom Bouquet** in the main nav: pick any mix of flower types and stem counts, add an optional gift message, and it goes through the exact same cart and checkout as a regular product.
 
-- **Flower types** (Rose, Lily, Tulip, ...) are admin-managed under **Flowers** in the sidebar — name, price per stem, a photo, active/inactive. Unlike `Product`, a `Flower` has no stock quantity; it's treated as always available while active (the shop uses artificial flowers, not perishable fresh stock).
+- **Flower types** (Rose, Lily, Tulip, ...) are admin-managed under **Flowers** in the sidebar — name, price per stem, a stock quantity, a photo, active/inactive.
 - **Wrapping paper** and **ribbon** (admin-managed under those same sidebar sections, `WrappingPaper`/`Ribbon`) are an *at most one* pick each — rendered as swatch buttons rather than flower's stem-count stepper — and are entirely optional.
 - `App\Services\CartService` stores a custom bouquet as a `custom_flowers` + `wrapping_paper_id` + `ribbon_id` session row alongside ordinary product rows, and resolves either shape into the same display object — see the class docblock for the exact session layout.
-- At checkout, `OrderService::placeOrder()` re-validates every selected flower/wrapping paper/ribbon is still active and recalculates its price from the database (never trusting the cart's stored numbers, same principle as products), then snapshots the choices onto `OrderItem` (`custom_flowers` JSON, `wrapping_paper_name`/`price`, `ribbon_name`/`price`) so the order's history stays intact even if one is later renamed, repriced, or deleted.
+- **Stock**: `Flower`/`WrappingPaper`/`Ribbon` each carry a `stock_quantity`, same shape as `Product`'s (`scopeInStock`, `is_low_stock`, `stock_status_label`, the admin dashboard's Low Stock Alerts widget). The Custom Bouquet builder marks an out-of-stock option unavailable; at checkout, `OrderService::placeOrder()` sums demand for each flower/wrap/ribbon *across every custom row in the cart* (the same ingredient can appear in more than one bouquet), locks those rows, and throws `InsufficientStockException` if the total exceeds what's on hand — the same guarantee `Product` already had, now covering a custom order's ingredients too. Cancelling an order restocks them; reinstating decrements again (see `OrderService::updateStatus()`).
+- At checkout, `OrderService::placeOrder()` re-validates every selected flower/wrapping paper/ribbon is still active and recalculates its price from the database (never trusting the cart's stored numbers, same principle as products), then snapshots the choices onto `OrderItem` (`custom_flowers` JSON, `wrapping_paper_id`/`name`/`price`, `ribbon_id`/`name`/`price` — the ids exist purely so cancellation can restock the right row) so the order's history stays intact even if one is later renamed, repriced, or deleted.
 - A deactivated-mid-checkout flower/wrapping paper/ribbon throws `App\Exceptions\ItemUnavailableException` (the custom-order analogue of `InsufficientStockException`), caught the same way in `CheckoutController`.
 
 ## Custom Charges

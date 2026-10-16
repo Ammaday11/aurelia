@@ -19,8 +19,10 @@ class OrderItem extends Model
         'line_total',
         'gift_message',
         'custom_flowers',
+        'wrapping_paper_id',
         'wrapping_paper_name',
         'wrapping_paper_price',
+        'ribbon_id',
         'ribbon_name',
         'ribbon_price',
         'custom_type',
@@ -44,6 +46,22 @@ class OrderItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Only set for a custom-bouquet line that picked a wrap — used to
+     * restock the right row when an order is cancelled (see
+     * OrderService::updateStatus()); wrapping_paper_name/price above are
+     * the display snapshot, this id is purely for that bookkeeping.
+     */
+    public function wrappingPaper(): BelongsTo
+    {
+        return $this->belongsTo(WrappingPaper::class);
+    }
+
+    public function ribbon(): BelongsTo
+    {
+        return $this->belongsTo(Ribbon::class);
     }
 
     /**

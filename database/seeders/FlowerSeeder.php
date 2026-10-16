@@ -24,12 +24,14 @@ class FlowerSeeder extends Seeder
     public function run(): void
     {
         $flowers = [
-            ['name' => 'Rose', 'price_per_stem' => 35.00, 'image' => 'rose', 'sort_order' => 1],
-            ['name' => 'Lily', 'price_per_stem' => 40.00, 'image' => 'lily', 'sort_order' => 2],
-            ['name' => 'Tulip', 'price_per_stem' => 30.00, 'image' => 'tulip', 'sort_order' => 3],
-            ['name' => 'Sunflower', 'price_per_stem' => 32.00, 'image' => 'sunflower', 'sort_order' => 4],
-            ['name' => 'Carnation', 'price_per_stem' => 20.00, 'image' => 'carnation', 'sort_order' => 5],
-            ['name' => "Baby's Breath", 'price_per_stem' => 15.00, 'image' => 'babys-breath', 'sort_order' => 6],
+            ['name' => 'Rose', 'price_per_stem' => 35.00, 'stock_quantity' => 120, 'image' => 'rose', 'sort_order' => 1],
+            ['name' => 'Lily', 'price_per_stem' => 40.00, 'stock_quantity' => 80, 'image' => 'lily', 'sort_order' => 2],
+            ['name' => 'Tulip', 'price_per_stem' => 30.00, 'stock_quantity' => 60, 'image' => 'tulip', 'sort_order' => 3],
+            ['name' => 'Sunflower', 'price_per_stem' => 32.00, 'stock_quantity' => 40, 'image' => 'sunflower', 'sort_order' => 4],
+            // Deliberately low — demonstrates the Low Stock Alerts widget
+            // on the admin dashboard out of the box.
+            ['name' => 'Carnation', 'price_per_stem' => 20.00, 'stock_quantity' => 4, 'image' => 'carnation', 'sort_order' => 5],
+            ['name' => "Baby's Breath", 'price_per_stem' => 15.00, 'stock_quantity' => 150, 'image' => 'babys-breath', 'sort_order' => 6],
         ];
 
         foreach ($flowers as $definition) {

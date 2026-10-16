@@ -19,13 +19,14 @@ use Illuminate\Support\Facades\DB;
  * Turns the current session cart into a persisted Order.
  *
  * Everything that matters for money and inventory happens inside one DB
- * transaction with the relevant product rows locked (SELECT ... FOR
- * UPDATE), so two guests checking out the last unit of a bouquet at the
- * same instant can't both succeed — the second one gets a clear
- * InsufficientStockException instead of silently overselling. Custom
- * bouquet lines (see CartService::addCustom()) have no stock to guard —
- * flowers/wrapping paper/ribbon are only checked for still being active —
- * so they don't need row locking.
+ * transaction with the relevant product/flower/wrapping-paper/ribbon rows
+ * locked (SELECT ... FOR UPDATE), so two guests checking out the last
+ * unit of something at the same instant can't both succeed — the second
+ * one gets a clear InsufficientStockException instead of silently
+ * overselling. A custom bouquet/boutonnière (see CartService::addCustom())
+ * draws on the same stock pool as everyone else building one, so its
+ * flowers/wrapping paper/ribbon are checked and decremented the same way
+ * a Product is — see the demand-aggregation step below.
  *
  * Totals are always recalculated here from the server's own product/
  * flower/wrapping/ribbon prices — the client/cart's numbers are never
@@ -64,17 +65,30 @@ class OrderService
                 ->get()
                 ->keyBy('id');
 
+            // Locked for the same reason as $products above — two guests
+            // building overlapping custom bouquets at the same instant
+            // must not both succeed off a stale stock_quantity.
             $flowerIds = $customRows->flatMap(fn (array $i) => collect($i['custom_flowers'])->pluck('flower_id'))->unique();
-            $flowers = Flower::query()->whereIn('id', $flowerIds)->get()->keyBy('id');
+            $flowers = Flower::query()->whereIn('id', $flowerIds)->lockForUpdate()->get()->keyBy('id');
 
             $wrappingPaperIds = $customRows->pluck('wrapping_paper_id')->filter()->unique();
-            $wrappingPapers = WrappingPaper::query()->whereIn('id', $wrappingPaperIds)->get()->keyBy('id');
+            $wrappingPapers = WrappingPaper::query()->whereIn('id', $wrappingPaperIds)->lockForUpdate()->get()->keyBy('id');
 
             $ribbonIds = $customRows->pluck('ribbon_id')->filter()->unique();
-            $ribbons = Ribbon::query()->whereIn('id', $ribbonIds)->get()->keyBy('id');
+            $ribbons = Ribbon::query()->whereIn('id', $ribbonIds)->lockForUpdate()->get()->keyBy('id');
 
             $subtotal = 0.0;
             $lines = [];
+
+            // A flower (or wrap/ribbon) can appear in more than one custom
+            // row — e.g. two different bouquets both using Roses — so
+            // total demand has to be summed across every row before it's
+            // checked against stock; checking each row independently
+            // against the same unmodified stock_quantity would let both
+            // pass even when their combined total oversells it.
+            $flowerDemand = [];
+            $wrapDemand = [];
+            $ribbonDemand = [];
 
             foreach ($productRows as $item) {
                 /** @var Product|null $product */
@@ -158,6 +172,19 @@ class OrderService
                 $lineTotal = round($bouquetUnitPrice * $bouquetQty, 2);
                 $subtotal += $lineTotal;
 
+                // Stems per bouquet × how many of this bouquet — a flower
+                // used across several custom rows accumulates here rather
+                // than overwriting.
+                foreach ($flowerLines as $l) {
+                    $flowerDemand[$l['flower_id']] = ($flowerDemand[$l['flower_id']] ?? 0) + $l['quantity'] * $bouquetQty;
+                }
+                if ($wrappingPaper) {
+                    $wrapDemand[$wrappingPaper->id] = ($wrapDemand[$wrappingPaper->id] ?? 0) + $bouquetQty;
+                }
+                if ($ribbon) {
+                    $ribbonDemand[$ribbon->id] = ($ribbonDemand[$ribbon->id] ?? 0) + $bouquetQty;
+                }
+
                 $type = ($item['type'] ?? 'bouquet') === 'boutonniere' ? 'boutonniere' : 'bouquet';
                 $label = $type === 'boutonniere' ? 'Custom Boutonnière' : 'Custom Bouquet';
                 $title = "{$label} (".collect($flowerLines)->map(fn (array $l) => "{$l['quantity']}\u{00D7} {$l['name']}")->implode(', ').')';
@@ -170,13 +197,41 @@ class OrderService
                     'line_total' => $lineTotal,
                     'gift_message' => $item['gift_message'] ?? null,
                     'custom_flowers' => $flowerLines,
+                    'wrapping_paper_id' => $wrappingPaper?->id,
                     'wrapping_paper_name' => $wrappingPaper?->name,
                     'wrapping_paper_price' => $wrappingPaper ? (float) $wrappingPaper->price : null,
+                    'ribbon_id' => $ribbon?->id,
                     'ribbon_name' => $ribbon?->name,
                     'ribbon_price' => $ribbon ? (float) $ribbon->price : null,
                     'custom_type' => $type,
                     'reference_image_path' => $item['reference_image_path'] ?? null,
                 ];
+            }
+
+            // Now that every row's demand is summed, check it against the
+            // locked stock in one pass each — before anything is written.
+            foreach ($flowerDemand as $flowerId => $needed) {
+                $flower = $flowers->get($flowerId);
+
+                if ($flower->stock_quantity < $needed) {
+                    throw new InsufficientStockException($flower->name, $flower->stock_quantity);
+                }
+            }
+
+            foreach ($wrapDemand as $wrappingPaperId => $needed) {
+                $wrappingPaper = $wrappingPapers->get($wrappingPaperId);
+
+                if ($wrappingPaper->stock_quantity < $needed) {
+                    throw new InsufficientStockException($wrappingPaper->name, $wrappingPaper->stock_quantity);
+                }
+            }
+
+            foreach ($ribbonDemand as $ribbonId => $needed) {
+                $ribbon = $ribbons->get($ribbonId);
+
+                if ($ribbon->stock_quantity < $needed) {
+                    throw new InsufficientStockException($ribbon->name, $ribbon->stock_quantity);
+                }
             }
 
             $subtotal = round($subtotal, 2);
@@ -234,8 +289,10 @@ class OrderService
                     'line_total' => $line['line_total'],
                     'gift_message' => $line['gift_message'],
                     'custom_flowers' => $line['custom_flowers'],
+                    'wrapping_paper_id' => $line['wrapping_paper_id'] ?? null,
                     'wrapping_paper_name' => $line['wrapping_paper_name'],
                     'wrapping_paper_price' => $line['wrapping_paper_price'],
+                    'ribbon_id' => $line['ribbon_id'] ?? null,
                     'ribbon_name' => $line['ribbon_name'],
                     'ribbon_price' => $line['ribbon_price'],
                     'custom_type' => $line['custom_type'],
@@ -243,9 +300,22 @@ class OrderService
                 ]);
 
                 // Block overselling: decrement atomically within the same
-                // locked transaction. Custom (flower) lines have no stock
-                // to decrement.
+                // locked transaction.
                 $line['product']?->decrement('stock_quantity', $line['quantity']);
+            }
+
+            // Flower/wrap/ribbon stock is decremented once per id from the
+            // aggregated demand above, not per line — a flower spread
+            // across several custom rows would otherwise be decremented
+            // once per row instead of by its true total.
+            foreach ($flowerDemand as $flowerId => $needed) {
+                $flowers->get($flowerId)->decrement('stock_quantity', $needed);
+            }
+            foreach ($wrapDemand as $wrappingPaperId => $needed) {
+                $wrappingPapers->get($wrappingPaperId)->decrement('stock_quantity', $needed);
+            }
+            foreach ($ribbonDemand as $ribbonId => $needed) {
+                $ribbons->get($ribbonId)->decrement('stock_quantity', $needed);
             }
 
             foreach ($automaticCharges as $charge) {
@@ -312,10 +382,11 @@ class OrderService
     /**
      * Moves an order to a new status in the admin workflow. Cancelling an
      * order restocks its items (the customer isn't getting them after
-     * all); reinstating a previously-cancelled order decrements stock
-     * again where possible, capped at zero rather than going negative if
-     * that stock has since been sold elsewhere. Custom-bouquet items have
-     * no product/stock, so they're a no-op here.
+     * all) — a product, and a custom bouquet/boutonnière's flowers/wrap/
+     * ribbon alike (via OrderItem's custom_flowers/wrapping_paper_id/
+     * ribbon_id — see placeOrder()). Reinstating a previously-cancelled
+     * order decrements stock again where possible, capped at zero rather
+     * than going negative if that stock has since been sold elsewhere.
      */
     public function updateStatus(Order $order, string $newStatus): Order
     {
@@ -327,10 +398,30 @@ class OrderService
             if (! $wasCancelled && $willBeCancelled) {
                 foreach ($order->items as $item) {
                     $item->product?->increment('stock_quantity', $item->quantity);
+
+                    foreach ($item->custom_flowers ?? [] as $flowerLine) {
+                        Flower::whereKey($flowerLine['flower_id'])->increment('stock_quantity', $flowerLine['quantity'] * $item->quantity);
+                    }
+
+                    $item->wrappingPaper?->increment('stock_quantity', $item->quantity);
+                    $item->ribbon?->increment('stock_quantity', $item->quantity);
                 }
             } elseif ($wasCancelled && ! $willBeCancelled) {
                 foreach ($order->items as $item) {
                     $item->product?->decrement('stock_quantity', min($item->quantity, $item->product->stock_quantity));
+
+                    foreach ($item->custom_flowers ?? [] as $flowerLine) {
+                        $flower = Flower::find($flowerLine['flower_id']);
+                        $flower?->decrement('stock_quantity', min($flowerLine['quantity'] * $item->quantity, $flower->stock_quantity));
+                    }
+
+                    if ($wrappingPaper = $item->wrappingPaper) {
+                        $wrappingPaper->decrement('stock_quantity', min($item->quantity, $wrappingPaper->stock_quantity));
+                    }
+
+                    if ($ribbon = $item->ribbon) {
+                        $ribbon->decrement('stock_quantity', min($item->quantity, $ribbon->stock_quantity));
+                    }
                 }
             }
 

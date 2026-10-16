@@ -18,8 +18,9 @@ class RibbonSeeder extends Seeder
     public function run(): void
     {
         $ribbons = [
-            ['name' => 'Satin Gold Ribbon', 'price' => 10.00, 'image' => 'satin-gold', 'sort_order' => 1],
-            ['name' => 'Organza Blush Ribbon', 'price' => 10.00, 'image' => 'organza-blush', 'sort_order' => 2],
+            ['name' => 'Satin Gold Ribbon', 'price' => 10.00, 'stock_quantity' => 60, 'image' => 'satin-gold', 'sort_order' => 1],
+            // Deliberately low — see FlowerSeeder's Carnation for why.
+            ['name' => 'Organza Blush Ribbon', 'price' => 10.00, 'stock_quantity' => 4, 'image' => 'organza-blush', 'sort_order' => 2],
         ];
 
         foreach ($ribbons as $definition) {

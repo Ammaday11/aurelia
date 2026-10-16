@@ -94,3 +94,29 @@ if (! function_exists('payment_method_label')) {
         return config('shop.payment_methods')[$method] ?? ucfirst(str_replace('_', ' ', $method));
     }
 }
+
+if (! function_exists('whatsapp_link')) {
+    /**
+     * A wa.me link for the admin-configured WhatsApp number (Settings >
+     * Contact Information), or null if none is set — the one place that
+     * builds this link, used by the storefront's floating WhatsApp button
+     * (see <x-whatsapp-button>).
+     *
+     * wa.me wants digits only (country code included, no "+", spaces, or
+     * dashes), so whatever format the admin typed the number in gets
+     * stripped down here rather than forcing them to enter it a specific
+     * way in the Settings form.
+     */
+    function whatsapp_link(?string $message = null): ?string
+    {
+        $number = preg_replace('/\D+/', '', (string) setting('whatsapp_number'));
+
+        if (blank($number)) {
+            return null;
+        }
+
+        $url = "https://wa.me/{$number}";
+
+        return $message ? $url.'?text='.rawurlencode($message) : $url;
+    }
+}

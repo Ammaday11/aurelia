@@ -13,6 +13,7 @@ class SettingsSeeder extends Seeder
             'shop_name' => 'Aurelia Boutonnière',
             'contact_email' => 'hello@aureliaboutonniere.test',
             'contact_phone' => '+960 777-1234',
+            'whatsapp_number' => '+960 777-1234',
             'contact_address' => 'Chandhanee Magu, Malé, Maldives',
             'opening_hours' => 'Daily, 9:00am – 9:00pm',
             'social_facebook' => 'https://facebook.com/aureliaboutonniere',

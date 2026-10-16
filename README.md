@@ -2,7 +2,7 @@
 
 A full-stack flower shop website with online ordering and an admin panel, built on Laravel 10 + Blade + Tailwind CSS + Alpine.js + Livewire 3.
 
-- **Storefront:** home, shop (filter/sort/search/pagination), product detail, cart, guest checkout (Cash on Delivery or Bank Transfer with receipt upload), order confirmation + email, order tracking, about, contact.
+- **Storefront:** home, shop (filter/sort/search/pagination), product detail, cart, guest checkout (Cash on Delivery or Bank Transfer with receipt upload), order confirmation + email, order tracking, about, contact, a floating WhatsApp button (every page — see `<x-whatsapp-button>` and `whatsapp_link()` in `app/Support/helpers.php`; hidden until a number is set in Settings).
 - **Admin panel** (`/admin`): dashboard, products (rich text, multi-image gallery with drag-reorder, featured/active toggles), categories, orders (status workflow, printable invoice), custom charges (delivery fee + any other automatic/manual fees), contact messages, users (staff accounts), backups (see "Backups" below), settings (shop info, logo/favicon, delivery time slots, bank details).
 - **Currency:** Maldivian Rufiyaa (MVR), displayed with a Rufiyaa sign glyph via a bundled custom webfont (at a Private Use Area codepoint — see below for why), with an image fallback for emails and the printable invoice.
 

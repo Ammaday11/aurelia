@@ -152,6 +152,8 @@
             </div>
         </footer>
 
+        <x-whatsapp-button />
+
         @livewireScripts
         {{ $scripts ?? '' }}
     </body>

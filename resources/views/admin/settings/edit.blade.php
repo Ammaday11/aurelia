@@ -45,7 +45,7 @@
         <div class="card space-y-5 p-6 sm:p-8">
             <h2 class="font-serif text-xl text-espresso">Contact Information</h2>
 
-            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
                 <div>
                     <x-input-label for="contact_email" value="Contact Email" />
                     <x-text-input id="contact_email" name="contact_email" type="email" class="mt-1 w-full" value="{{ old('contact_email', setting('contact_email')) }}" />
@@ -54,6 +54,12 @@
                 <div>
                     <x-input-label for="contact_phone" value="Contact Phone" />
                     <x-text-input id="contact_phone" name="contact_phone" class="mt-1 w-full" value="{{ old('contact_phone', setting('contact_phone')) }}" />
+                </div>
+                <div>
+                    <x-input-label for="whatsapp_number" value="WhatsApp Number" />
+                    <x-text-input id="whatsapp_number" name="whatsapp_number" class="mt-1 w-full" placeholder="+960 777-1234" value="{{ old('whatsapp_number', setting('whatsapp_number')) }}" />
+                    <p class="mt-1 text-xs text-espresso/60">Include the country code. Powers the floating WhatsApp button on the storefront — hidden when this is blank.</p>
+                    <x-input-error :messages="$errors->get('whatsapp_number')" class="mt-2" />
                 </div>
             </div>
 

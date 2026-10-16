@@ -25,6 +25,10 @@ class UpdateSettingsRequest extends FormRequest
             'social_facebook' => ['nullable', 'url', 'max:255'],
             'social_instagram' => ['nullable', 'url', 'max:255'],
             'social_tiktok' => ['nullable', 'url', 'max:255'],
+            // Digits plus an optional leading "+", spaces, and dashes —
+            // whatever the admin naturally types — sanitized down to
+            // digits-only when building the wa.me link (see setting_whatsapp_link()).
+            'whatsapp_number' => ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9\s\-]+$/'],
 
             'delivery_time_slots' => ['required', 'array', 'min:1'],
             'delivery_time_slots.*' => ['required', 'string', 'max:60'],

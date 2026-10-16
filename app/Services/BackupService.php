@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\BackupException;
 use Carbon\CarbonImmutable;
+use Generator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
@@ -12,7 +13,6 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Symfony\Component\Process\Process;
 use ZipArchive;
 
 /**
@@ -24,7 +24,11 @@ use ZipArchive;
  * config/filesystems.php) named "{type}-{Y-m-d_His}.zip", containing:
  *   - manifest.json        {driver, type, created_at}
  *   - database.sqlite       (sqlite connections)  — or —
- *   - database.sql          (mysql/mariadb connections, via mysqldump)
+ *   - database.sql          (mysql/mariadb connections — a plain SQL dump
+ *                            generated in pure PHP, not by shelling out to
+ *                            mysqldump/mysql, which often isn't installed
+ *                            on shared/budget hosting; see dumpMysqlToFile()
+ *                            / restoreMysqlDatabase())
  *   - public/...            a full copy of storage/app/public
  *
  * Restoring is necessarily destructive (it replaces the live database
@@ -78,6 +82,7 @@ class BackupService
         }
 
         $driver = config('database.default');
+        $tempDumpFile = null;
 
         try {
             $zip->addFromString('manifest.json', json_encode([
@@ -86,10 +91,17 @@ class BackupService
                 'created_at' => now()->toIso8601String(),
             ], JSON_PRETTY_PRINT));
 
-            $this->addDatabaseToZip($zip, $driver);
+            $tempDumpFile = $this->addDatabaseToZip($zip, $driver);
             $this->addDirectoryToZip($zip, $this->publicDiskPath(), 'public');
         } finally {
             $zip->close();
+
+            // addFile() only reads its source once the zip is closed, so
+            // a temp dump file (mysql — see addDatabaseToZip()) can only
+            // be cleaned up after that, not right after it's added.
+            if ($tempDumpFile && is_file($tempDumpFile)) {
+                @unlink($tempDumpFile);
+            }
         }
 
         return new BackupFileInfo($filename, $type, CarbonImmutable::now(), (int) filesize($absolutePath));
@@ -201,7 +213,12 @@ class BackupService
         }
     }
 
-    protected function addDatabaseToZip(ZipArchive $zip, string $driver): void
+    /**
+     * Adds the database to the zip, returning the path of a temp file the
+     * caller must delete once the zip is closed (mysql only — a sqlite
+     * backup adds the live file directly and needs no temp copy).
+     */
+    protected function addDatabaseToZip(ZipArchive $zip, string $driver): ?string
     {
         if ($driver === 'sqlite') {
             $path = config('database.connections.sqlite.database');
@@ -212,42 +229,76 @@ class BackupService
 
             $zip->addFile($path, 'database.sqlite');
 
-            return;
+            return null;
         }
 
         if (in_array($driver, ['mysql', 'mariadb'], true)) {
-            $dump = $this->runMysqldump();
-            $zip->addFromString('database.sql', $dump);
+            $tempFile = tempnam(sys_get_temp_dir(), 'aurelia-db-dump-');
+            $this->dumpMysqlToFile($tempFile);
+            $zip->addFile($tempFile, 'database.sql');
 
-            return;
+            return $tempFile;
         }
 
         throw new BackupException("Backups aren't supported for the \"{$driver}\" database driver.");
     }
 
-    protected function runMysqldump(): string
+    /**
+     * A plain-SQL dump of every table — schema (DROP + the exact CREATE
+     * TABLE MySQL itself reports) then data as batched multi-row INSERTs
+     * — written straight to $path rather than built up as one giant PHP
+     * string, so a shop's worth of order history doesn't have to fit in
+     * memory twice over. Pure PHP/PDO: no mysqldump binary required,
+     * since plenty of shared hosting doesn't have one on the PATH.
+     */
+    protected function dumpMysqlToFile(string $path): void
     {
-        $config = config('database.connections.mysql');
+        $handle = fopen($path, 'w');
 
-        $process = new Process([
-            'mysqldump',
-            '--host='.$config['host'],
-            '--port='.$config['port'],
-            '--user='.$config['username'],
-            '--single-transaction',
-            '--skip-lock-tables',
-            '--no-tablespaces',
-            $config['database'],
-        ], null, ['MYSQL_PWD' => $config['password']]);
-
-        $process->setTimeout(300);
-        $process->run();
-
-        if (! $process->isSuccessful()) {
-            throw new BackupException('mysqldump failed: '.$process->getErrorOutput());
+        if (! $handle) {
+            throw new BackupException('Could not open a temporary file for the database dump.');
         }
 
-        return $process->getOutput();
+        try {
+            $pdo = DB::connection()->getPdo();
+            fwrite($handle, "SET FOREIGN_KEY_CHECKS=0;\n\n");
+
+            $tables = collect(DB::select('SHOW TABLES'))->map(fn ($row) => array_values((array) $row)[0]);
+
+            foreach ($tables as $table) {
+                $createTable = DB::select("SHOW CREATE TABLE `{$table}`")[0]->{'Create Table'};
+                fwrite($handle, "DROP TABLE IF EXISTS `{$table}`;\n{$createTable};\n\n");
+
+                // Not chunkById() — that pages by an "id" column, but not
+                // every table has one (password_reset_tokens is keyed by
+                // email, sessions by a string token), and offset paging
+                // needs a deterministic order anyway. A shop's worth of
+                // rows per table fits in memory at once without issue;
+                // only the write to disk is batched, via chunk() below.
+                $rows = DB::table($table)->get();
+
+                foreach ($rows->chunk(500) as $chunk) {
+                    $columns = array_keys((array) $chunk->first());
+                    $columnList = implode(', ', array_map(fn ($c) => "`{$c}`", $columns));
+
+                    $valueRows = $chunk->map(function ($row) use ($pdo, $columns) {
+                        $row = (array) $row;
+                        $values = array_map(
+                            fn ($column) => is_null($row[$column]) ? 'NULL' : $pdo->quote((string) $row[$column]),
+                            $columns
+                        );
+
+                        return '('.implode(', ', $values).')';
+                    })->implode(",\n");
+
+                    fwrite($handle, "INSERT INTO `{$table}` ({$columnList}) VALUES\n{$valueRows};\n\n");
+                }
+            }
+
+            fwrite($handle, "SET FOREIGN_KEY_CHECKS=1;\n");
+        } finally {
+            fclose($handle);
+        }
     }
 
     protected function addDirectoryToZip(ZipArchive $zip, string $directory, string $zipPrefix): void
@@ -337,14 +388,17 @@ class BackupService
 
     protected function restoreDatabase(string $tempDir, string $driver): void
     {
-        DB::disconnect();
-
         if ($driver === 'sqlite') {
             $source = $tempDir.'/database.sqlite';
 
             if (! is_file($source)) {
                 throw new BackupException('That archive is missing database.sqlite.');
             }
+
+            // The live file has to be released before it can be
+            // overwritten — not needed for mysql below, which stays on
+            // the same already-open connection throughout.
+            DB::disconnect();
 
             $destination = config('database.connections.sqlite.database');
             File::copy($source, $destination);
@@ -359,28 +413,86 @@ class BackupService
                 throw new BackupException('That archive is missing database.sql.');
             }
 
-            $config = config('database.connections.mysql');
-
-            $process = new Process([
-                'mysql',
-                '--host='.$config['host'],
-                '--port='.$config['port'],
-                '--user='.$config['username'],
-                $config['database'],
-            ], null, ['MYSQL_PWD' => $config['password']]);
-
-            $process->setTimeout(300);
-            $process->setInput(fopen($source, 'r'));
-            $process->run();
-
-            if (! $process->isSuccessful()) {
-                throw new BackupException('Restoring the database failed: '.$process->getErrorOutput());
-            }
+            $this->restoreMysqlDatabase($source);
 
             return;
         }
 
         throw new BackupException("Restoring isn't supported for the \"{$driver}\" database driver.");
+    }
+
+    /**
+     * Executes dumpMysqlToFile()'s output statement by statement via PDO
+     * — pure PHP, same reasoning as the dump side: no mysql CLI binary
+     * required. Splitting on a bare `;` would be wrong (a value like an
+     * order's special_notes could itself contain "foo;\nbar"), so
+     * splitSqlStatements() tracks quote state char by char and only
+     * splits on a `;` that's actually outside a string.
+     */
+    protected function restoreMysqlDatabase(string $path): void
+    {
+        $pdo = DB::connection()->getPdo();
+        $sql = file_get_contents($path);
+
+        foreach ($this->splitSqlStatements($sql) as $statement) {
+            $pdo->exec($statement);
+        }
+    }
+
+    protected function splitSqlStatements(string $sql): Generator
+    {
+        $length = strlen($sql);
+        $buffer = '';
+        $inString = false;
+        $quoteChar = '';
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $sql[$i];
+
+            if ($inString) {
+                $buffer .= $char;
+
+                if ($char === '\\' && $i + 1 < $length) {
+                    $buffer .= $sql[++$i];
+
+                    continue;
+                }
+
+                if ($char === $quoteChar) {
+                    $inString = false;
+                }
+
+                continue;
+            }
+
+            if ($char === "'" || $char === '"' || $char === '`') {
+                $inString = true;
+                $quoteChar = $char;
+                $buffer .= $char;
+
+                continue;
+            }
+
+            if ($char === ';') {
+                $statement = trim($buffer);
+
+                if ($statement !== '') {
+                    yield $statement;
+                }
+
+                $buffer = '';
+
+                continue;
+            }
+
+            $buffer .= $char;
+        }
+
+        $remaining = trim($buffer);
+
+        if ($remaining !== '') {
+            yield $remaining;
+        }
     }
 
     /**

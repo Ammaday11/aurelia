@@ -24,3 +24,8 @@ yarn-error.log
 # .gitignore from the Laravel skeleton, so runtime-uploaded product
 # photos/receipts/branding are excluded there, not here.
 /database/database.sqlite
+
+# Backup zips (App\Services\BackupService) and its scratch directory for
+# in-progress restores — both are runtime data, never source.
+/storage/app/backups
+/storage/app/tmp

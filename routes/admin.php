@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProductImageController;
 use App\Http\Controllers\Admin\RibbonController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WrappingPaperController;
 use Illuminate\Support\Facades\Route;
 
@@ -65,4 +66,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::get('/', [SettingController::class, 'edit'])->name('edit');
         Route::put('/', [SettingController::class, 'update'])->name('update');
     });
+
+    Route::resource('users', UserController::class)->except(['show']);
+
+    require __DIR__.'/admin-backups.php';
 });

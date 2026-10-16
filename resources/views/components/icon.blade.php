@@ -110,6 +110,20 @@
         </svg>
         @break
 
+    @case('user')
+        <svg {{ $attributes }} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+            <circle cx="12" cy="8" r="3.75" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 20.5a7.5 7.5 0 0 1 15 0" />
+        </svg>
+        @break
+
+    @case('download')
+        <svg {{ $attributes }} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3.5v12m0 0-4-4m4 4 4-4" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 16.5V19a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-2.5" />
+        </svg>
+        @break
+
     @default
         <svg {{ $attributes }} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
             <circle cx="12" cy="12" r="9" />

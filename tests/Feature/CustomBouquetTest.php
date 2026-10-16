@@ -7,6 +7,7 @@ use App\Mail\OrderConfirmation;
 use App\Models\Flower;
 use App\Models\Order;
 use App\Models\Ribbon;
+use App\Models\User;
 use App\Models\WrappingPaper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -309,9 +310,51 @@ class CustomBouquetTest extends TestCase
         $this->assertStringContainsString('/storage/', $item->referenceImageUrl());
     }
 
+    public function test_the_reference_image_is_deleted_once_the_order_is_delivered(): void
+    {
+        Mail::fake();
+        Storage::fake('public');
+
+        [$rose] = $this->makeFlowers();
+
+        $this->post(route('cart.add-custom'), [
+            'flowers' => [$rose->id => 3],
+            'reference_image' => UploadedFile::fake()->image('inspiration.jpg'),
+        ]);
+
+        $this->post(route('checkout.store'), [
+            'name' => 'Jane Doe',
+            'phone' => '960 777-1234',
+            'email' => 'jane@example.com',
+            'delivery_address' => '123 Test Street, Malé',
+            'delivery_date' => now()->addDay()->toDateString(),
+            'delivery_time_slot' => config('shop.default_delivery_time_slots')[0],
+            'payment_method' => 'cod',
+        ]);
+
+        $order = Order::first();
+        $item = $order->items->first();
+        $path = $item->reference_image_path;
+        $this->assertNotNull($path);
+        Storage::disk('public')->assertExists($path);
+
+        $admin = User::factory()->create();
+
+        // Moving through the workflow without reaching "delivered" keeps
+        // the file — the photo is still useful while the order is active.
+        $this->actingAs($admin)->patch(route('admin.orders.status', $order), ['status' => 'preparing']);
+        Storage::disk('public')->assertExists($path);
+        $this->assertNotNull($item->fresh()->reference_image_path);
+
+        $this->actingAs($admin)->patch(route('admin.orders.status', $order), ['status' => 'delivered']);
+
+        Storage::disk('public')->assertMissing($path);
+        $this->assertNull($item->fresh()->reference_image_path);
+    }
+
     public function test_admin_can_manage_flowers(): void
     {
-        $admin = \App\Models\User::factory()->create();
+        $admin = User::factory()->create();
 
         $this->actingAs($admin)
             ->post(route('admin.flowers.store'), [

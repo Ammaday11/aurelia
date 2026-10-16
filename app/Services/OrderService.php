@@ -14,6 +14,7 @@ use App\Models\Ribbon;
 use App\Models\WrappingPaper;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Turns the current session cart into a persisted Order.
@@ -421,6 +422,22 @@ class OrderService
 
                     if ($ribbon = $item->ribbon) {
                         $ribbon->decrement('stock_quantity', min($item->quantity, $ribbon->stock_quantity));
+                    }
+                }
+            }
+
+            // The reference photo a customer uploaded on the builder (see
+            // CartController::addCustom()) has done its job once the order
+            // is actually delivered — the florist doesn't need it anymore,
+            // so delete the file to reclaim storage rather than keeping it
+            // indefinitely. Gated on the transition itself (not already
+            // delivered) so re-saving an already-delivered order is a
+            // no-op, not a repeated delete attempt.
+            if ($newStatus === Order::DELIVERED && $order->status !== Order::DELIVERED) {
+                foreach ($order->items as $item) {
+                    if ($item->reference_image_path) {
+                        Storage::disk('public')->delete($item->reference_image_path);
+                        $item->update(['reference_image_path' => null]);
                     }
                 }
             }

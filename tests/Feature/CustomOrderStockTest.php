@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Facades\Cart;
-use App\Mail\OrderConfirmation;
 use App\Models\Flower;
 use App\Models\Order;
 use App\Models\Ribbon;

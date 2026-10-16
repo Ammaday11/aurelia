@@ -3,7 +3,7 @@
 A full-stack flower shop website with online ordering and an admin panel, built on Laravel 10 + Blade + Tailwind CSS + Alpine.js + Livewire 3.
 
 - **Storefront:** home, shop (filter/sort/search/pagination), product detail, cart, guest checkout (Cash on Delivery or Bank Transfer with receipt upload), order confirmation + email, order tracking, about, contact.
-- **Admin panel** (`/admin`): dashboard, products (rich text, multi-image gallery with drag-reorder, featured/active toggles), categories, orders (status workflow, printable invoice), custom charges (delivery fee + any other automatic/manual fees), contact messages, settings (shop info, logo/favicon, delivery time slots, bank details).
+- **Admin panel** (`/admin`): dashboard, products (rich text, multi-image gallery with drag-reorder, featured/active toggles), categories, orders (status workflow, printable invoice), custom charges (delivery fee + any other automatic/manual fees), contact messages, users (staff accounts), backups (see "Backups" below), settings (shop info, logo/favicon, delivery time slots, bank details).
 - **Currency:** Maldivian Rufiyaa (MVR), displayed with a Rufiyaa sign glyph via a bundled custom webfont (at a Private Use Area codepoint — see below for why), with an image fallback for emails and the printable invoice.
 
 ---
@@ -217,6 +217,7 @@ Alongside the fixed catalogue (`Product`), customers can design their own bouque
 - **Stock**: `Flower`/`WrappingPaper`/`Ribbon` each carry a `stock_quantity`, same shape as `Product`'s (`scopeInStock`, `is_low_stock`, `stock_status_label`, the admin dashboard's Low Stock Alerts widget). The Custom Bouquet builder marks an out-of-stock option unavailable; at checkout, `OrderService::placeOrder()` sums demand for each flower/wrap/ribbon *across every custom row in the cart* (the same ingredient can appear in more than one bouquet), locks those rows, and throws `InsufficientStockException` if the total exceeds what's on hand — the same guarantee `Product` already had, now covering a custom order's ingredients too. Cancelling an order restocks them; reinstating decrements again (see `OrderService::updateStatus()`).
 - At checkout, `OrderService::placeOrder()` re-validates every selected flower/wrapping paper/ribbon is still active and recalculates its price from the database (never trusting the cart's stored numbers, same principle as products), then snapshots the choices onto `OrderItem` (`custom_flowers` JSON, `wrapping_paper_id`/`name`/`price`, `ribbon_id`/`name`/`price` — the ids exist purely so cancellation can restock the right row) so the order's history stays intact even if one is later renamed, repriced, or deleted.
 - A deactivated-mid-checkout flower/wrapping paper/ribbon throws `App\Exceptions\ItemUnavailableException` (the custom-order analogue of `InsufficientStockException`), caught the same way in `CheckoutController`.
+- A customer can attach a reference photo to a custom order at checkout (`OrderItem.reference_image_path`). It's deleted — and the column cleared — the moment the order reaches `delivered` (`OrderService::updateStatus()`): the florist has no further use for it once the order is actually fulfilled, so there's no reason to keep paying for the storage indefinitely. Cancelling, or any status short of delivered, leaves it alone.
 
 ## Custom Charges
 
@@ -226,6 +227,26 @@ Alongside the fixed catalogue (`Product`), customers can design their own bouque
 - **Manual** (`is_automatic = false`, the default): never applied on its own. An admin attaches it to one specific order from that order's **Charges** card (e.g. a one-off "Rush Order Fee"), which recalculates and persists that order's `total` — see `OrderService::attachCharge()` / `detachCharge()` and `Admin\OrderController::attachCharge()` / `detachCharge()`.
 
 Every charge actually applied to an order — automatic or manually attached — becomes an `OrderCharge` row (name/amount snapshotted, like everything else on an order), so `Order::recalculateTotal()` just sums `subtotal + delivery_fee + charges`. `orders.delivery_fee` itself is always `0` on an order placed after the 2026_10_15_214900 migration — it's kept only so orders placed before that move still show their original amount (see `<x-order-totals>`), with the real fee now living in `charges` like everything else.
+
+## Users
+
+**Users** in the admin sidebar manages staff accounts (`App\Http\Controllers\Admin\UserController`) — every registered user is an admin (`User::isAdmin()` always returns `true`; there's no separate role yet), so this screen is really just account CRUD: name, email, password. Public self-registration stays disabled (`routes/auth.php`); this screen and `php artisan admin:create` are the two ways to add staff.
+
+`UserPolicy::delete()` has two safety rails an admin can't bypass from the UI: you can't delete your own account (so you can't accidentally lock yourself out), and you can't delete the last remaining account (so the panel can never end up with nobody able to log in).
+
+## Backups
+
+**Backups** in the admin sidebar (`App\Services\BackupService`, `Admin\BackupController`) creates a single `.zip` per backup containing the full database and every file on the "public" disk (product/flower/wrapping-paper/ribbon photos, receipts, logo/favicon) — restoring one restores the whole site's state, not just rows in a table.
+
+- **Schedule**: daily at 02:00, weekly on Monday at 02:15, monthly on the 1st at 02:30 (`App\Console\Kernel::schedule()`), each running `php artisan backup:run {type}`. This only actually fires if the host has Laravel's scheduler cron entry installed — add `* * * * * php artisan schedule:run >> /dev/null 2>&1` to the server's crontab (see Laravel's [task scheduling docs](https://laravel.com/docs/10.x/scheduling#running-the-scheduler)). Without it, nothing is missing in the code — the schedule just never gets polled.
+- **Retention** (`config/backup.php`): keeps the last 5 daily, last 2 weekly, last 2 monthly — enforced by `BackupService::prune()` right after each scheduled run, per type (a daily backup never counts against weekly's or monthly's retention). A manual "Backup Now" backup is never auto-pruned; an admin deletes those by hand from the Backups screen.
+- **Download**: every backup — scheduled or manual — has a Download link, streamed through the authenticated admin screen. Backups live on a private "backups" disk (`config/filesystems.php`), never the public one, since a backup contains customer names, emails, phone numbers and addresses.
+- **Restore**: two paths, both destructive (they replace the live database and the live public-storage tree to exactly match the backup) and both guarded the same way — see `BackupService::performRestore()`:
+  1. **From an existing backup** — Restore next to any backup already listed (auto-saved or manual).
+  2. **From an uploaded backup** — the "Restore From an Uploaded Backup" form at the bottom of the screen, for a `.zip` downloaded earlier (e.g. after moving to a new server).
+
+  Either way, a `pre-restore` safety backup of the *current* state is taken automatically, first — if that safety backup itself fails to create, the restore is aborted rather than proceeding without a way back. After swapping in the backup's database and files, `php artisan migrate --force` runs once more so the restored schema matches the current code (covers restoring a backup taken before a later migration shipped).
+- **Database support**: sqlite (copies the `.sqlite` file directly) and MySQL/MariaDB (`mysqldump` / `mysql` CLI, shelled out via `Symfony\Process`) — whichever `DB_CONNECTION` is configured. A backup records which driver made it (`manifest.json` inside the zip) and restoring refuses to proceed if that doesn't match the current connection's driver, rather than attempting a cross-engine restore it can't actually do safely.
 
 ## Testing the Order Flow
 

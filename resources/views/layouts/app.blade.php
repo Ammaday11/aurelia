@@ -50,6 +50,8 @@
                             ['route' => 'admin.custom-charges.index', 'pattern' => 'admin.custom-charges.*', 'label' => 'Custom Charges', 'icon' => 'receipt'],
                             ['route' => 'admin.orders.index', 'pattern' => 'admin.orders.*', 'label' => 'Orders', 'icon' => 'box'],
                             ['route' => 'admin.messages.index', 'pattern' => 'admin.messages.*', 'label' => 'Messages', 'icon' => 'mail'],
+                            ['route' => 'admin.users.index', 'pattern' => 'admin.users.*', 'label' => 'Users', 'icon' => 'user'],
+                            ['route' => 'admin.backups.index', 'pattern' => 'admin.backups.*', 'label' => 'Backups', 'icon' => 'download'],
                             ['route' => 'admin.settings.edit', 'pattern' => 'admin.settings.*', 'label' => 'Settings', 'icon' => 'cog'],
                         ];
                     @endphp

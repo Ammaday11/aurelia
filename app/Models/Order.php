@@ -25,6 +25,8 @@ class Order extends Model
 
     public const CANCELLED = 'cancelled';
 
+    public const DELIVERED = 'delivered';
+
     protected $fillable = [
         'order_number',
         'name',

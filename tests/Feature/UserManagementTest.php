@@ -16,6 +16,30 @@ class UserManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * Guards against a real bug this exact form once had: a bare
+     * `{{ ... }}` echo used as a pseudo-attribute inside a self-closing
+     * `<x-text-input .../>` tag breaks Blade's component-tag compiler, so
+     * it silently prints the literal `<x-text-input>` text instead of
+     * compiling to a real `<input>` — invisible to every other test here,
+     * since they all post form data directly rather than rendering the
+     * page. Only an actual GET + markup assertion like this one catches
+     * it. See the fix: :required="..." instead of a bare `{{ }}`.
+     */
+    public function test_the_create_and_edit_forms_render_real_password_inputs(): void
+    {
+        $admin = User::factory()->create();
+
+        $createHtml = $this->actingAs($admin)->get(route('admin.users.create'))->getContent();
+        $this->assertStringNotContainsString('<x-text-input', $createHtml);
+        $this->assertMatchesRegularExpression('/<input[^>]+id="password"[^>]+type="password"/', $createHtml);
+        $this->assertMatchesRegularExpression('/<input[^>]+id="password_confirmation"[^>]+type="password"/', $createHtml);
+
+        $editHtml = $this->actingAs($admin)->get(route('admin.users.edit', $admin))->getContent();
+        $this->assertStringNotContainsString('<x-text-input', $editHtml);
+        $this->assertMatchesRegularExpression('/<input[^>]+id="password"[^>]+type="password"/', $editHtml);
+    }
+
     public function test_admin_can_create_a_user(): void
     {
         $admin = User::factory()->create();

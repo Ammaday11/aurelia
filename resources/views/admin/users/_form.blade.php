@@ -17,7 +17,7 @@
 
         <div>
             <x-input-label for="password" :value="isset($editUser) ? 'New Password (optional)' : 'Password'" />
-            <x-text-input id="password" name="password" type="password" class="mt-1 w-full" {{ isset($editUser) ? '' : 'required' }} />
+            <x-text-input id="password" name="password" type="password" class="mt-1 w-full" :required="! isset($editUser)" />
             @if (isset($editUser))
                 <p class="mt-1 text-xs text-espresso/60">Leave blank to keep the current password.</p>
             @endif
@@ -26,7 +26,7 @@
 
         <div>
             <x-input-label for="password_confirmation" value="Confirm Password" />
-            <x-text-input id="password_confirmation" name="password_confirmation" type="password" class="mt-1 w-full" {{ isset($editUser) ? '' : 'required' }} />
+            <x-text-input id="password_confirmation" name="password_confirmation" type="password" class="mt-1 w-full" :required="! isset($editUser)" />
         </div>
     </div>
 

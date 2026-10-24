@@ -117,9 +117,12 @@ git clone <this-repo-url> aurelia
 cd aurelia
 
 cp .env.example .env
+cp docker-compose.yml.example docker-compose.yml
 ```
 
 ### 3. Start MySQL (Docker)
+
+`docker-compose.yml` is gitignored on purpose so you can tune it (ports, etc.) for your own machine without touching version control — `docker-compose.yml.example` is the tracked template.
 
 ```bash
 docker compose up -d
@@ -305,7 +308,7 @@ resources/views/
   vendor/mail/                             re-themed Laravel markdown-mail components
 public/fonts/RufiyaaSign-Regular.woff2
 public/images/mail/rufiyaa-sign.png
-docker-compose.yml                         local MySQL 8 only
+docker-compose.yml.example                 local MySQL 8 only (copy to docker-compose.yml, gitignored)
 ```
 
 ---

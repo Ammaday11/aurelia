@@ -28,4 +28,8 @@ yarn-error.log
 # Backup zips (App\Services\BackupService) and its scratch directory for
 # in-progress restores — both are runtime data, never source.
 /storage/app/backups
+
+# Local dev MySQL compose file — kept untracked so each contributor can
+# tune it for their own machine without touching version control.
+/docker-compose.yml
 /storage/app/tmp

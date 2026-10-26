@@ -96,30 +96,4 @@
         </div>
     </section>
 
-    {{-- Testimonials --}}
-    @if (! empty($testimonials))
-        <section class="bg-blush/30 py-20">
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <p class="section-tagline">Kind words</p>
-                <h2 class="section-title mt-2">What Our Customers Say</h2>
-                <div class="floral-divider my-6"></div>
-
-                <div class="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
-                    @foreach ($testimonials as $t)
-                        <div class="card p-6">
-                            <div class="flex gap-0.5 text-sand" aria-hidden="true">
-                                @for ($i = 0; $i < $t['rating']; $i++)
-                                    <svg class="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.2 1.3 6-5.4-3-5.4 3 1.3-6L1.3 7.7l6.1-.6z"/></svg>
-                                @endfor
-                            </div>
-                            <p class="mt-4 text-sm leading-relaxed text-espresso/85">&ldquo;{{ $t['quote'] }}&rdquo;</p>
-                            <p class="mt-4 font-serif text-espresso">{{ $t['name'] }}</p>
-                            <p class="text-xs text-mocha">{{ $t['location'] }}</p>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        </section>
-    @endif
-
 </x-storefront-layout>

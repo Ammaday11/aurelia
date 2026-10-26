@@ -37,7 +37,6 @@ class HomeController extends Controller
         return view('pages.home', [
             'featured' => $featured,
             'categories' => Category::active()->ordered()->withCount('activeProducts')->get(),
-            'testimonials' => config('shop.testimonials'),
         ]);
     }
 }

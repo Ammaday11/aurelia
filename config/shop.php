@@ -107,35 +107,4 @@ return [
     // this value is only ever read at seed time.
     'default_delivery_fee' => 50.00,
 
-    /*
-    |--------------------------------------------------------------------------
-    | Testimonials
-    |--------------------------------------------------------------------------
-    |
-    | Shown on the home page. Static for now (no admin CRUD was requested
-    | for testimonials) — edit this array to change them.
-    |
-    */
-
-    'testimonials' => [
-        [
-            'name' => 'Aishath Nazeera',
-            'location' => 'Malé',
-            'quote' => 'The bouquet arrived looking even better than the photos. Aurelia made my sister\'s birthday so special!',
-            'rating' => 5,
-        ],
-        [
-            'name' => 'Hassan Rasheed',
-            'location' => 'Hulhumalé',
-            'quote' => 'Ordering was effortless and delivery was right on time for our anniversary. Will absolutely order again.',
-            'rating' => 5,
-        ],
-        [
-            'name' => 'Fathimath Shaaba',
-            'location' => 'Malé',
-            'quote' => 'Beautifully arranged, fresh flowers, and the gift note touch made it feel truly personal.',
-            'rating' => 5,
-        ],
-    ],
-
 ];

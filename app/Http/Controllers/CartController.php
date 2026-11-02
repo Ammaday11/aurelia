@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Facades\Cart;
 use App\Http\Requests\AddCustomBouquetRequest;
 use App\Http\Requests\AddToCartRequest;
+use App\Models\Extra;
 use App\Models\Flower;
 use App\Models\Product;
 use App\Models\Ribbon;
@@ -76,6 +77,16 @@ class CartController extends Controller
             $ribbonId = null;
         }
 
+        // Same re-check as the flower selections above — extras are
+        // optional, so an empty result here just means none were picked.
+        $availableExtraIds = Extra::query()->active()->inStock()->pluck('id');
+
+        $extraSelections = collect($request->validated('extras', []))
+            ->filter(fn ($quantity, $extraId) => (int) $quantity > 0 && $availableExtraIds->contains((int) $extraId))
+            ->map(fn ($quantity, $extraId) => ['extra_id' => (int) $extraId, 'quantity' => (int) $quantity])
+            ->values()
+            ->all();
+
         $type = $request->validated('type') === 'boutonniere' ? 'boutonniere' : 'bouquet';
 
         // Uploaded eagerly, here, rather than at checkout — the cart row is
@@ -93,6 +104,7 @@ class CartController extends Controller
             $referenceImagePath,
             (int) ($request->validated('quantity') ?? 1),
             $request->validated('gift_message'),
+            $extraSelections,
         );
 
         $label = $type === 'boutonniere' ? 'Your custom boutonnière' : 'Your custom bouquet';

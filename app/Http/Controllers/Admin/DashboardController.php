@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Extra;
 use App\Models\Flower;
 use App\Models\Order;
 use App\Models\Product;
@@ -22,6 +23,7 @@ class DashboardController extends Controller
         [Flower::class, 'Flower', 'name', 'admin.flowers.edit'],
         [WrappingPaper::class, 'Wrapping Paper', 'name', 'admin.wrapping-papers.edit'],
         [Ribbon::class, 'Ribbon', 'name', 'admin.ribbons.edit'],
+        [Extra::class, 'Extra', 'name', 'admin.extras.edit'],
     ];
 
     public function index(): View

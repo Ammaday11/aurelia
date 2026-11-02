@@ -83,6 +83,11 @@
                                     ])->filter()->implode(' · ') }}
                                 </div>
                             @endif
+                            @if (! empty($item->custom_extras))
+                                <div class="text-xs text-espresso/60">
+                                    {{ collect($item->custom_extras)->map(fn ($e) => "{$e['quantity']}\u{00D7} {$e['name']}")->implode(', ') }}
+                                </div>
+                            @endif
                         </td>
                         <td class="py-3 text-center text-espresso/80">{{ $item->quantity }}</td>
                         <td class="py-3 text-right"><x-price :amount="$item->unit_price" for="image" /></td>

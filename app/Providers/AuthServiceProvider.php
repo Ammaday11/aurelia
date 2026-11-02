@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Category;
 use App\Models\ContactMessage;
 use App\Models\CustomCharge;
+use App\Models\Extra;
 use App\Models\Flower;
 use App\Models\Order;
 use App\Models\Product;
@@ -14,6 +15,7 @@ use App\Models\WrappingPaper;
 use App\Policies\CategoryPolicy;
 use App\Policies\ContactMessagePolicy;
 use App\Policies\CustomChargePolicy;
+use App\Policies\ExtraPolicy;
 use App\Policies\FlowerPolicy;
 use App\Policies\OrderPolicy;
 use App\Policies\ProductPolicy;
@@ -39,6 +41,7 @@ class AuthServiceProvider extends ServiceProvider
         WrappingPaper::class => WrappingPaperPolicy::class,
         Ribbon::class => RibbonPolicy::class,
         CustomCharge::class => CustomChargePolicy::class,
+        Extra::class => ExtraPolicy::class,
         User::class => UserPolicy::class,
     ];
 

@@ -58,6 +58,11 @@
                                             ])->filter()->implode(' · ') }}
                                         </p>
                                     @endif
+                                    @if ($item->extras->isNotEmpty())
+                                        <p class="text-xs text-espresso/70">
+                                            {{ $item->extras->map(fn ($line) => "{$line->quantity}\u{00D7} {$line->extra->name}")->implode(', ') }}
+                                        </p>
+                                    @endif
                                 @endif
 
                                 <x-price :amount="$item->unit_price" class="text-sm text-mocha" />

@@ -25,6 +25,7 @@ class OrderItem extends Model
         'ribbon_id',
         'ribbon_name',
         'ribbon_price',
+        'custom_extras',
         'custom_type',
         'reference_image_path',
     ];
@@ -36,6 +37,7 @@ class OrderItem extends Model
         'custom_flowers' => 'array',
         'wrapping_paper_price' => 'decimal:2',
         'ribbon_price' => 'decimal:2',
+        'custom_extras' => 'array',
     ];
 
     public function order(): BelongsTo

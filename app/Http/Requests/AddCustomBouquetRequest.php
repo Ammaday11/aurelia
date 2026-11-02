@@ -20,6 +20,8 @@ class AddCustomBouquetRequest extends FormRequest
             'type' => ['nullable', 'string', 'in:bouquet,boutonniere'],
             'wrapping_paper_id' => ['nullable', 'integer', 'exists:wrapping_papers,id'],
             'ribbon_id' => ['nullable', 'integer', 'exists:ribbons,id'],
+            'extras' => ['nullable', 'array'],
+            'extras.*' => ['nullable', 'integer', 'min:0', 'max:50'],
             'reference_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'quantity' => ['nullable', 'integer', 'min:1', 'max:20'],
             'gift_message' => ['nullable', 'string', 'max:500'],

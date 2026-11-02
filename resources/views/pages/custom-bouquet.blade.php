@@ -21,7 +21,9 @@
                       flowers: {{ $flowers->mapWithKeys(fn ($f) => [$f->id => ['name' => $f->name, 'price' => (float) $f->price_per_stem, 'stock' => $f->stock_quantity]])->toJson() }},
                       wrappingPapers: {{ $wrappingPapers->mapWithKeys(fn ($w) => [$w->id => ['name' => $w->name, 'price' => (float) $w->price, 'stock' => $w->stock_quantity]])->toJson() }},
                       ribbons: {{ $ribbons->mapWithKeys(fn ($r) => [$r->id => ['name' => $r->name, 'price' => (float) $r->price, 'stock' => $r->stock_quantity]])->toJson() }},
+                      extras: {{ $extras->mapWithKeys(fn ($e) => [$e->id => ['name' => $e->name, 'price' => (float) $e->price, 'stock' => $e->stock_quantity]])->toJson() }},
                       initialQty: {{ collect(old('flowers', []))->mapWithKeys(fn ($qty, $id) => [(int) $id => (int) $qty])->toJson() }},
+                      initialExtraQty: {{ collect(old('extras', []))->mapWithKeys(fn ($qty, $id) => [(int) $id => (int) $qty])->toJson() }},
                       initialWrap: {{ \Illuminate\Support\Js::from(old('wrapping_paper_id') ? (int) old('wrapping_paper_id') : null) }},
                       initialRibbon: {{ \Illuminate\Support\Js::from(old('ribbon_id') ? (int) old('ribbon_id') : null) }},
                       initialType: {{ \Illuminate\Support\Js::from(old('type', 'bouquet')) }},
@@ -181,6 +183,59 @@
                                 </div>
                             </div>
                         @endif
+
+                        @if ($extras->isNotEmpty())
+                            <div>
+                                <h2 class="font-serif text-xl text-espresso">Extras <span class="text-sm font-sans font-normal text-espresso/60">(optional)</span></h2>
+                                <x-input-error :messages="$errors->get('extras')" class="mb-4 mt-1" />
+
+                                <div class="grid grid-cols-2 gap-5 sm:grid-cols-3">
+                                    @foreach ($extras as $extra)
+                                        <div class="card flex flex-col gap-3 p-4 {{ $extra->stock_quantity <= 0 ? 'opacity-60' : '' }}">
+                                            <div class="relative aspect-square overflow-hidden rounded-lg bg-blush">
+                                                @if ($extra->image)
+                                                    <img src="{{ $extra->imageUrl() }}" alt="{{ $extra->name }}" class="h-full w-full object-cover">
+                                                @else
+                                                    <div class="flex h-full w-full items-center justify-center text-mocha/50">
+                                                        <x-icon name="gift" class="h-10 w-10" />
+                                                    </div>
+                                                @endif
+                                                @if ($extra->stock_quantity <= 0)
+                                                    <div class="absolute inset-0 flex items-center justify-center bg-espresso/50">
+                                                        <span class="badge bg-beige-surface text-espresso">Out of Stock</span>
+                                                    </div>
+                                                @endif
+                                            </div>
+
+                                            <div>
+                                                <p class="font-serif text-base text-espresso">{{ $extra->name }}</p>
+                                                <p class="text-xs text-mocha"><x-price :amount="$extra->price" /></p>
+                                                <p class="text-xs font-semibold {{ $extra->stock_quantity <= 0 ? 'text-red-600' : ($extra->is_low_stock ? 'text-mocha' : 'text-green-700') }}">
+                                                    {{ $extra->stock_status_label }}
+                                                </p>
+                                            </div>
+
+                                            <div class="mt-auto flex items-center justify-center gap-3">
+                                                <button type="button"
+                                                        @click="decrementExtra({{ $extra->id }})"
+                                                        :disabled="{{ $extra->stock_quantity }} <= 0"
+                                                        class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-blush text-espresso hover:bg-blush disabled:cursor-not-allowed disabled:opacity-40"
+                                                        aria-label="Fewer {{ $extra->name }}">&minus;</button>
+                                                <input type="number" name="extras[{{ $extra->id }}]" min="0" max="{{ $extra->stock_quantity }}"
+                                                       x-model.number="extraQty[{{ $extra->id }}]"
+                                                       {{ $extra->stock_quantity <= 0 ? 'disabled' : '' }}
+                                                       class="input w-14 py-1 text-center disabled:cursor-not-allowed disabled:opacity-40">
+                                                <button type="button"
+                                                        @click="incrementExtra({{ $extra->id }})"
+                                                        :disabled="{{ $extra->stock_quantity }} <= 0"
+                                                        class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-blush text-espresso hover:bg-blush disabled:cursor-not-allowed disabled:opacity-40"
+                                                        aria-label="More {{ $extra->name }}">+</button>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                     </div>
 
                     <div class="lg:col-span-1">
@@ -191,7 +246,7 @@
                                 Choose flowers to start building your bouquet.
                             </p>
 
-                            <ul x-show="lines.length > 0 || wrap || ribbon" class="space-y-2">
+                            <ul x-show="lines.length > 0 || wrap || ribbon || extraLines.length > 0" class="space-y-2">
                                 <template x-for="line in lines" :key="line.id">
                                     <li class="flex items-center justify-between gap-3 text-sm">
                                         <span class="text-espresso" x-text="line.qty + '× ' + line.name"></span>
@@ -206,6 +261,12 @@
                                     <span class="text-espresso" x-text="ribbon ? ribbons[ribbon].name + ' ribbon' : ''"></span>
                                     <span class="price-rufiyaa flex-shrink-0 text-espresso" x-text="ribbon ? formatPrice(ribbons[ribbon].price) : ''"></span>
                                 </li>
+                                <template x-for="line in extraLines" :key="'extra-'+line.id">
+                                    <li class="flex items-center justify-between gap-3 text-sm">
+                                        <span class="text-espresso" x-text="line.qty + '× ' + line.name"></span>
+                                        <span class="price-rufiyaa flex-shrink-0 text-espresso" x-text="formatPrice(line.total)"></span>
+                                    </li>
+                                </template>
                             </ul>
 
                             <div class="flex items-center justify-between border-t border-blush pt-4 text-sm font-semibold text-espresso">
@@ -251,12 +312,14 @@
         // Defined as a plain (non-module) inline script, so it runs and
         // registers globally before Alpine's deferred module script scans
         // the DOM for the x-data="customBouquet(...)" expression above.
-        function customBouquet({ flowers, wrappingPapers, ribbons, initialQty, initialWrap, initialRibbon, initialType, sign }) {
+        function customBouquet({ flowers, wrappingPapers, ribbons, extras, initialQty, initialExtraQty, initialWrap, initialRibbon, initialType, sign }) {
             return {
                 flowers,
                 wrappingPapers,
                 ribbons,
+                extras,
                 qty: Object.fromEntries(Object.keys(flowers).map((id) => [id, initialQty[id] || 0])),
+                extraQty: Object.fromEntries(Object.keys(extras).map((id) => [id, initialExtraQty[id] || 0])),
                 wrap: initialWrap,
                 ribbon: initialRibbon,
                 type: initialType === 'boutonniere' ? 'boutonniere' : 'bouquet',
@@ -272,12 +335,24 @@
                         }));
                 },
 
+                get extraLines() {
+                    return Object.entries(this.extraQty)
+                        .filter(([, q]) => (q || 0) > 0)
+                        .map(([id, q]) => ({
+                            id,
+                            name: this.extras[id].name,
+                            qty: q,
+                            total: this.extras[id].price * q,
+                        }));
+                },
+
                 get subtotal() {
                     const flowersTotal = this.lines.reduce((sum, line) => sum + line.total, 0);
+                    const extrasTotal = this.extraLines.reduce((sum, line) => sum + line.total, 0);
                     const wrapPrice = this.wrap ? this.wrappingPapers[this.wrap].price : 0;
                     const ribbonPrice = this.ribbon ? this.ribbons[this.ribbon].price : 0;
 
-                    return flowersTotal + wrapPrice + ribbonPrice;
+                    return flowersTotal + wrapPrice + ribbonPrice + extrasTotal;
                 },
 
                 get stemCount() {
@@ -291,6 +366,15 @@
 
                 decrement(id) {
                     this.qty[id] = Math.max(0, (this.qty[id] || 0) - 1);
+                },
+
+                incrementExtra(id) {
+                    const stock = this.extras[id]?.stock ?? 0;
+                    this.extraQty[id] = Math.min(stock, (this.extraQty[id] || 0) + 1);
+                },
+
+                decrementExtra(id) {
+                    this.extraQty[id] = Math.max(0, (this.extraQty[id] || 0) - 1);
                 },
 
                 formatPrice(amount) {

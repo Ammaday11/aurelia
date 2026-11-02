@@ -20,6 +20,11 @@
             ])->filter()->implode(' · ') }}
         </p>
     @endif
+    @if (! empty($item->custom_extras))
+        <p class="text-xs text-espresso/60">
+            {{ collect($item->custom_extras)->map(fn ($e) => "{$e['quantity']}\u{00D7} {$e['name']}")->implode(', ') }}
+        </p>
+    @endif
     @if ($item->referenceImageUrl())
         <a href="{{ $item->referenceImageUrl() }}" target="_blank" class="mt-1 inline-block">
             <img src="{{ $item->referenceImageUrl() }}" alt="Reference photo" class="h-14 w-14 rounded-lg border border-blush object-cover">

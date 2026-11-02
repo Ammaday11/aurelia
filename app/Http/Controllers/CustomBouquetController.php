@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Extra;
 use App\Models\Flower;
 use App\Models\Ribbon;
 use App\Models\WrappingPaper;
@@ -15,6 +16,7 @@ class CustomBouquetController extends Controller
             'flowers' => Flower::query()->active()->ordered()->get(),
             'wrappingPapers' => WrappingPaper::query()->active()->ordered()->get(),
             'ribbons' => Ribbon::query()->active()->ordered()->get(),
+            'extras' => Extra::query()->active()->ordered()->get(),
         ]);
     }
 }

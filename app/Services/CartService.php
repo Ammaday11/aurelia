@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Extra;
 use App\Models\Flower;
 use App\Models\Product;
 use App\Models\Ribbon;
@@ -27,6 +28,7 @@ use Illuminate\Support\Str;
  *         'reference_image_path' => 'custom-reference/xyz.jpg',  // nullable — already uploaded, see addCustom()
  *         'quantity' => 1,
  *         'gift_message' => '...',
+ *         'custom_extras' => [['extra_id' => 4, 'quantity' => 1], ...],  // optional add-ons, same shape as custom_flowers
  *     ],
  * ]
  *
@@ -83,6 +85,7 @@ class CartService
      * @param  string  $type  'bouquet' or 'boutonniere'.
      * @param  string|null  $referenceImagePath  Already uploaded to the public disk by the caller (CartController::addCustom()) — the cart only ever stores the resulting path, never an UploadedFile, since session data has to survive across requests.
      * @param  int  $quantity  How many of this exact piece to order.
+     * @param  array<int, array{extra_id: int, quantity: int}>  $extraSelections  Optional add-ons (chocolates, money gifts, ...) — same shape/filtering as $flowerSelections, but may be empty.
      */
     public function addCustom(
         array $flowerSelections,
@@ -91,17 +94,18 @@ class CartService
         ?int $ribbonId = null,
         ?string $referenceImagePath = null,
         int $quantity = 1,
-        ?string $giftMessage = null
+        ?string $giftMessage = null,
+        array $extraSelections = []
     ): string {
         $quantity = max(1, $quantity);
         $giftMessage = blank($giftMessage) ? null : trim($giftMessage);
-        $selection = $this->normalizeSelection($flowerSelections, $type, $wrappingPaperId, $ribbonId);
+        $selection = $this->normalizeSelection($flowerSelections, $type, $wrappingPaperId, $ribbonId, $extraSelections);
         $items = $this->raw();
 
         foreach ($items as $rowId => $item) {
             if (
                 isset($item['custom_flowers'])
-                && $this->normalizeSelection($item['custom_flowers'], $item['type'] ?? 'bouquet', $item['wrapping_paper_id'] ?? null, $item['ribbon_id'] ?? null) === $selection
+                && $this->normalizeSelection($item['custom_flowers'], $item['type'] ?? 'bouquet', $item['wrapping_paper_id'] ?? null, $item['ribbon_id'] ?? null, $item['custom_extras'] ?? []) === $selection
                 && ($item['gift_message'] ?? null) === $giftMessage
                 && ($item['reference_image_path'] ?? null) === $referenceImagePath
             ) {
@@ -121,6 +125,7 @@ class CartService
             'reference_image_path' => $referenceImagePath,
             'quantity' => $quantity,
             'gift_message' => $giftMessage,
+            'custom_extras' => $extraSelections,
         ];
         $this->save($items);
 
@@ -129,11 +134,11 @@ class CartService
 
     /**
      * A stable, order-independent signature for a custom piece's full
-     * selection (flowers + type + wrap + ribbon), so adding the identical
-     * piece twice merges into one row regardless of the order the flowers
-     * were picked in.
+     * selection (flowers + type + wrap + ribbon + extras), so adding the
+     * identical piece twice merges into one row regardless of the order
+     * the flowers/extras were picked in.
      */
-    protected function normalizeSelection(array $flowerSelections, string $type, ?int $wrappingPaperId, ?int $ribbonId): string
+    protected function normalizeSelection(array $flowerSelections, string $type, ?int $wrappingPaperId, ?int $ribbonId, array $extraSelections = []): string
     {
         $pairs = collect($flowerSelections)
             ->map(fn (array $s) => [(int) $s['flower_id'], (int) $s['quantity']])
@@ -141,7 +146,13 @@ class CartService
             ->values()
             ->all();
 
-        return json_encode([$pairs, $type, $wrappingPaperId, $ribbonId]);
+        $extraPairs = collect($extraSelections)
+            ->map(fn (array $s) => [(int) $s['extra_id'], (int) $s['quantity']])
+            ->sortBy(fn (array $pair) => $pair[0])
+            ->values()
+            ->all();
+
+        return json_encode([$pairs, $type, $wrappingPaperId, $ribbonId, $extraPairs]);
     }
 
     public function update(string $rowId, int $quantity): void
@@ -219,10 +230,13 @@ class CartService
         $ribbonIds = $customRows->pluck('ribbon_id')->filter()->unique();
         $ribbons = Ribbon::query()->whereIn('id', $ribbonIds)->get()->keyBy('id');
 
+        $extraIds = $customRows->flatMap(fn (array $i) => collect($i['custom_extras'] ?? [])->pluck('extra_id'))->unique();
+        $extras = Extra::query()->whereIn('id', $extraIds)->get()->keyBy('id');
+
         return collect($items)
-            ->map(function (array $item, string $rowId) use ($products, $flowers, $wrappingPapers, $ribbons) {
+            ->map(function (array $item, string $rowId) use ($products, $flowers, $wrappingPapers, $ribbons, $extras) {
                 return isset($item['custom_flowers'])
-                    ? $this->resolveCustomRow($rowId, $item, $flowers, $wrappingPapers, $ribbons)
+                    ? $this->resolveCustomRow($rowId, $item, $flowers, $wrappingPapers, $ribbons, $extras)
                     : $this->resolveProductRow($rowId, $item, $products);
             })
             ->filter()
@@ -249,6 +263,7 @@ class CartService
             'type' => null,
             'wrappingPaper' => null,
             'ribbon' => null,
+            'extras' => null,
             'referenceImageUrl' => null,
             'title' => $product->title,
             'quantity' => $quantity,
@@ -260,7 +275,7 @@ class CartService
         ];
     }
 
-    protected function resolveCustomRow(string $rowId, array $item, Collection $flowers, Collection $wrappingPapers, Collection $ribbons): ?object
+    protected function resolveCustomRow(string $rowId, array $item, Collection $flowers, Collection $wrappingPapers, Collection $ribbons, Collection $extras): ?object
     {
         $lines = collect($item['custom_flowers'])
             ->map(function (array $selection) use ($flowers) {
@@ -294,12 +309,34 @@ class CartService
         /** @var Ribbon|null $ribbon */
         $ribbon = ! empty($item['ribbon_id']) ? $ribbons->get($item['ribbon_id']) : null;
 
+        $extraLines = collect($item['custom_extras'] ?? [])
+            ->map(function (array $selection) use ($extras) {
+                /** @var Extra|null $extra */
+                $extra = $extras->get($selection['extra_id']);
+
+                if (! $extra) {
+                    return null;
+                }
+
+                $quantity = max(1, (int) $selection['quantity']);
+
+                return (object) [
+                    'extra' => $extra,
+                    'quantity' => $quantity,
+                    'unit_price' => (float) $extra->price,
+                    'line_total' => round((float) $extra->price * $quantity, 2),
+                ];
+            })
+            ->filter()
+            ->values();
+
         $type = $item['type'] ?? 'bouquet';
         $quantity = max(1, (int) ($item['quantity'] ?? 1));
         $unitPrice = round(
             (float) $lines->sum('line_total')
                 + ($wrappingPaper ? (float) $wrappingPaper->price : 0)
-                + ($ribbon ? (float) $ribbon->price : 0),
+                + ($ribbon ? (float) $ribbon->price : 0)
+                + (float) $extraLines->sum('line_total'),
             2
         );
 
@@ -311,6 +348,7 @@ class CartService
             'type' => $type,
             'wrappingPaper' => $wrappingPaper,
             'ribbon' => $ribbon,
+            'extras' => $extraLines,
             'referenceImageUrl' => ! empty($item['reference_image_path']) ? asset('storage/'.$item['reference_image_path']) : null,
             'title' => $this->customTitle($lines, $type),
             'quantity' => $quantity,

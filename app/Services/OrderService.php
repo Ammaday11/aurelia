@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\InsufficientStockException;
 use App\Exceptions\ItemUnavailableException;
 use App\Models\CustomCharge;
+use App\Models\Extra;
 use App\Models\Flower;
 use App\Models\Order;
 use App\Models\OrderCharge;
@@ -20,18 +21,18 @@ use Illuminate\Support\Facades\Storage;
  * Turns the current session cart into a persisted Order.
  *
  * Everything that matters for money and inventory happens inside one DB
- * transaction with the relevant product/flower/wrapping-paper/ribbon rows
- * locked (SELECT ... FOR UPDATE), so two guests checking out the last
+ * transaction with the relevant product/flower/wrapping-paper/ribbon/extra
+ * rows locked (SELECT ... FOR UPDATE), so two guests checking out the last
  * unit of something at the same instant can't both succeed — the second
  * one gets a clear InsufficientStockException instead of silently
  * overselling. A custom bouquet/boutonnière (see CartService::addCustom())
  * draws on the same stock pool as everyone else building one, so its
- * flowers/wrapping paper/ribbon are checked and decremented the same way
- * a Product is — see the demand-aggregation step below.
+ * flowers/wrapping paper/ribbon/extras are checked and decremented the
+ * same way a Product is — see the demand-aggregation step below.
  *
  * Totals are always recalculated here from the server's own product/
- * flower/wrapping/ribbon prices — the client/cart's numbers are never
- * trusted for the charge.
+ * flower/wrapping/ribbon/extra prices — the client/cart's numbers are
+ * never trusted for the charge.
  */
 class OrderService
 {
@@ -78,6 +79,9 @@ class OrderService
             $ribbonIds = $customRows->pluck('ribbon_id')->filter()->unique();
             $ribbons = Ribbon::query()->whereIn('id', $ribbonIds)->lockForUpdate()->get()->keyBy('id');
 
+            $extraIds = $customRows->flatMap(fn (array $i) => collect($i['custom_extras'] ?? [])->pluck('extra_id'))->unique();
+            $extras = Extra::query()->whereIn('id', $extraIds)->lockForUpdate()->get()->keyBy('id');
+
             $subtotal = 0.0;
             $lines = [];
 
@@ -90,6 +94,7 @@ class OrderService
             $flowerDemand = [];
             $wrapDemand = [];
             $ribbonDemand = [];
+            $extraDemand = [];
 
             foreach ($productRows as $item) {
                 /** @var Product|null $product */
@@ -119,6 +124,7 @@ class OrderService
                     'wrapping_paper_price' => null,
                     'ribbon_name' => null,
                     'ribbon_price' => null,
+                    'custom_extras' => null,
                     'custom_type' => null,
                     'reference_image_path' => null,
                 ];
@@ -163,10 +169,28 @@ class OrderService
                     }
                 }
 
+                $extraLines = [];
+                foreach ($item['custom_extras'] ?? [] as $selection) {
+                    /** @var Extra|null $extra */
+                    $extra = $extras->get($selection['extra_id']);
+
+                    if (! $extra || ! $extra->is_active) {
+                        throw new ItemUnavailableException($extra?->name ?? "Extra #{$selection['extra_id']}");
+                    }
+
+                    $extraLines[] = [
+                        'extra_id' => $extra->id,
+                        'name' => $extra->name,
+                        'unit_price' => (float) $extra->price,
+                        'quantity' => max(1, (int) $selection['quantity']),
+                    ];
+                }
+
                 $bouquetUnitPrice = round(
                     collect($flowerLines)->sum(fn (array $l) => $l['unit_price'] * $l['quantity'])
                         + ($wrappingPaper ? (float) $wrappingPaper->price : 0)
-                        + ($ribbon ? (float) $ribbon->price : 0),
+                        + ($ribbon ? (float) $ribbon->price : 0)
+                        + collect($extraLines)->sum(fn (array $l) => $l['unit_price'] * $l['quantity']),
                     2
                 );
                 $bouquetQty = max(1, (int) ($item['quantity'] ?? 1));
@@ -184,6 +208,9 @@ class OrderService
                 }
                 if ($ribbon) {
                     $ribbonDemand[$ribbon->id] = ($ribbonDemand[$ribbon->id] ?? 0) + $bouquetQty;
+                }
+                foreach ($extraLines as $l) {
+                    $extraDemand[$l['extra_id']] = ($extraDemand[$l['extra_id']] ?? 0) + $l['quantity'] * $bouquetQty;
                 }
 
                 $type = ($item['type'] ?? 'bouquet') === 'boutonniere' ? 'boutonniere' : 'bouquet';
@@ -204,6 +231,7 @@ class OrderService
                     'ribbon_id' => $ribbon?->id,
                     'ribbon_name' => $ribbon?->name,
                     'ribbon_price' => $ribbon ? (float) $ribbon->price : null,
+                    'custom_extras' => $extraLines,
                     'custom_type' => $type,
                     'reference_image_path' => $item['reference_image_path'] ?? null,
                 ];
@@ -232,6 +260,14 @@ class OrderService
 
                 if ($ribbon->stock_quantity < $needed) {
                     throw new InsufficientStockException($ribbon->name, $ribbon->stock_quantity);
+                }
+            }
+
+            foreach ($extraDemand as $extraId => $needed) {
+                $extra = $extras->get($extraId);
+
+                if ($extra->stock_quantity < $needed) {
+                    throw new InsufficientStockException($extra->name, $extra->stock_quantity);
                 }
             }
 
@@ -296,6 +332,7 @@ class OrderService
                     'ribbon_id' => $line['ribbon_id'] ?? null,
                     'ribbon_name' => $line['ribbon_name'],
                     'ribbon_price' => $line['ribbon_price'],
+                    'custom_extras' => $line['custom_extras'],
                     'custom_type' => $line['custom_type'],
                     'reference_image_path' => $line['reference_image_path'],
                 ]);
@@ -317,6 +354,9 @@ class OrderService
             }
             foreach ($ribbonDemand as $ribbonId => $needed) {
                 $ribbons->get($ribbonId)->decrement('stock_quantity', $needed);
+            }
+            foreach ($extraDemand as $extraId => $needed) {
+                $extras->get($extraId)->decrement('stock_quantity', $needed);
             }
 
             foreach ($automaticCharges as $charge) {
@@ -404,6 +444,10 @@ class OrderService
                         Flower::whereKey($flowerLine['flower_id'])->increment('stock_quantity', $flowerLine['quantity'] * $item->quantity);
                     }
 
+                    foreach ($item->custom_extras ?? [] as $extraLine) {
+                        Extra::whereKey($extraLine['extra_id'])->increment('stock_quantity', $extraLine['quantity'] * $item->quantity);
+                    }
+
                     $item->wrappingPaper?->increment('stock_quantity', $item->quantity);
                     $item->ribbon?->increment('stock_quantity', $item->quantity);
                 }
@@ -414,6 +458,11 @@ class OrderService
                     foreach ($item->custom_flowers ?? [] as $flowerLine) {
                         $flower = Flower::find($flowerLine['flower_id']);
                         $flower?->decrement('stock_quantity', min($flowerLine['quantity'] * $item->quantity, $flower->stock_quantity));
+                    }
+
+                    foreach ($item->custom_extras ?? [] as $extraLine) {
+                        $extra = Extra::find($extraLine['extra_id']);
+                        $extra?->decrement('stock_quantity', min($extraLine['quantity'] * $item->quantity, $extra->stock_quantity));
                     }
 
                     if ($wrappingPaper = $item->wrappingPaper) {

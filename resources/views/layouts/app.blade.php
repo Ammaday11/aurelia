@@ -47,6 +47,7 @@
                             ['route' => 'admin.flowers.index', 'pattern' => 'admin.flowers.*', 'label' => 'Flowers', 'icon' => 'sparkles'],
                             ['route' => 'admin.wrapping-papers.index', 'pattern' => 'admin.wrapping-papers.*', 'label' => 'Wrapping Papers', 'icon' => 'gift'],
                             ['route' => 'admin.ribbons.index', 'pattern' => 'admin.ribbons.*', 'label' => 'Ribbons', 'icon' => 'ribbon'],
+                            ['route' => 'admin.extras.index', 'pattern' => 'admin.extras.*', 'label' => 'Extras', 'icon' => 'plus-circle'],
                             ['route' => 'admin.custom-charges.index', 'pattern' => 'admin.custom-charges.*', 'label' => 'Custom Charges', 'icon' => 'receipt'],
                             ['route' => 'admin.orders.index', 'pattern' => 'admin.orders.*', 'label' => 'Orders', 'icon' => 'box'],
                             ['route' => 'admin.messages.index', 'pattern' => 'admin.messages.*', 'label' => 'Messages', 'icon' => 'mail'],

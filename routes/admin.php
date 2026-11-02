@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CustomChargeController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ExtraController;
 use App\Http\Controllers\Admin\FlowerController;
 use App\Http\Controllers\Admin\MessageController;
 use App\Http\Controllers\Admin\OrderController;
@@ -43,6 +44,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         ->parameters(['wrapping-papers' => 'wrappingPaper']);
 
     Route::resource('ribbons', RibbonController::class)->except(['show']);
+
+    Route::resource('extras', ExtraController::class)->except(['show']);
 
     Route::resource('custom-charges', CustomChargeController::class)->except(['show'])
         ->parameters(['custom-charges' => 'customCharge']);

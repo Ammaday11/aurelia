@@ -27,6 +27,9 @@ Your order has been received and our florists are already preparing it.
     $item->ribbon_name ? "{$item->ribbon_name} ribbon" : null,
 ])->filter()->implode(' &middot; ') }}</small>
 @endif
+@if (! empty($item->custom_extras))
+<br><small>{{ collect($item->custom_extras)->map(fn ($e) => "{$e['quantity']}\u{00D7} {$e['name']}")->implode(', ') }}</small>
+@endif
 </td>
 <td align="center">{{ $item->quantity }}</td>
 <td align="right"><x-price :amount="$item->line_total" for="image" /></td>

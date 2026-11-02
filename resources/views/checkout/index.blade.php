@@ -149,6 +149,11 @@
                                                 ])->filter()->implode(' · ') }}
                                             </p>
                                         @endif
+                                        @if ($item->extras->isNotEmpty())
+                                            <p class="truncate text-xs text-espresso/60">
+                                                {{ $item->extras->map(fn ($line) => "{$line->quantity}\u{00D7} {$line->extra->name}")->implode(', ') }}
+                                            </p>
+                                        @endif
                                     @endif
                                     <p class="text-xs text-espresso/60">Qty {{ $item->quantity }}</p>
                                 </div>

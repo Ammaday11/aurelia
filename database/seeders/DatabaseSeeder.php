@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             FlowerSeeder::class,
             WrappingPaperSeeder::class,
             RibbonSeeder::class,
+            ExtraSeeder::class,
             CustomChargeSeeder::class,
         ]);
     }
